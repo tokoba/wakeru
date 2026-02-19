@@ -1,6 +1,6 @@
-[English](README.md) | [日本語](README_ja.md)
-
 # wakeru
+
+[English](README.md) | [日本語](README_ja.md)
 
 [![CI](https://github.com/tokoba/wakeru/workflows/CI/badge.svg)](https://github.com/tokoba/wakeru/actions)
 [![Security](https://github.com/tokoba/wakeru/workflows/Security/badge.svg)](https://github.com/tokoba/wakeru/actions)
@@ -98,10 +98,10 @@ cargo run --example example_wakeru
 
 ## クレート構成
 
-| クレート       | 説明                                         |
-|----------------|----------------------------------------------|
-| `wakeru`       | 形態素解析・全文検索ライブラリ               |
-| `wakeru-api`   | Web API サーバー（Axum ベース）              |
+| クレート     | 説明                                   |
+|--------------|----------------------------------------|
+| `wakeru`     | 形態素解析・全文検索ライブラリ         |
+| `wakeru-api` | Web API サーバー（Axum ベース）        |
 
 ## 開発環境
 

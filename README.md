@@ -1,13 +1,14 @@
-[English](README.md) | [日本語](README_ja.md)
-
 # wakeru
+
+[English](README.md) | [日本語](README_ja.md)
 
 [![CI](https://github.com/tokoba/wakeru/workflows/CI/badge.svg)](https://github.com/tokoba/wakeru/actions)
 [![Security](https://github.com/tokoba/wakeru/workflows/Security/badge.svg)](https://github.com/tokoba/wakeru/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Rust](https://img.shields.io/badge/rust-2024-orange.svg)](https://www.rust-lang.org)
 
-Japanese morphological analysis and BM25 full-text search library – fast filtering and re-ranking for RAG pipelines.
+Japanese morphological analysis and BM25 full-text search library –
+fast filtering and re-ranking for RAG pipelines.
 
 ## Overview
 
@@ -98,10 +99,10 @@ cargo run --example example_wakeru
 
 ## Crates
 
-| Crate        | Description                                   |
-|--------------|-----------------------------------------------|
+| Crate        | Description                                    |
+|--------------|------------------------------------------------|
 | `wakeru`     | Core morphological analysis and search library |
-| `wakeru-api` | Axum-based Web API server                     |
+| `wakeru-api` | Axum-based Web API server                      |
 
 ## Development environment
 
