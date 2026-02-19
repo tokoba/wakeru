@@ -12,7 +12,9 @@ fast filtering and re-ranking for RAG pipelines.
 
 ## Overview
 
-**wakeru** (meaning "to split / separate" in Japanese) is a Rust library that combines Japanese morphological analysis with full-text search. It is designed for Retrieval-Augmented Generation (RAG) workflows and offers:
+**wakeru** (meaning "to split / separate" in Japanese) is a Rust library
+that combines Japanese morphological analysis with full-text search.
+It is designed for Retrieval-Augmented Generation (RAG) workflows and offers:
 
 - **Japanese morphological analysis** using [vibrato-rkyv](https://github.com/akiradeveloper/vibrato) for high-speed tokenization
 - **BM25 full-text search** powered by [tantivy](https://github.com/quickwit-oss/tantivy)
