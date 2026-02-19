@@ -7,11 +7,11 @@ license.workspace = true
 description = "HTTP API server for the wakeru morphological analysis library"
 repository.workspace = true
 rust-version.workspace = true
-publish.workspace = true
+publish = true
 
 [dependencies]
 # 自社クレート
-wakeru = { path = "../wakeru" }
+wakeru = { version = "0.1.1" }
 
 # Web フレームワーク
 axum.workspace = true
@@ -35,3 +35,9 @@ thiserror.workspace = true
 
 [lints]
 workspace = true
+
+[features]
+default = []
+# 辞書ダウンロードを必要とする統合テストを有効化する
+# CIではデフォルトで無効（スキップ）、ローカルで明示的に有効化して使用
+with_dict_tests = []

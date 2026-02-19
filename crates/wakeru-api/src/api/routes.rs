@@ -55,7 +55,22 @@ mod tests {
 
   use super::*;
   use crate::config::{Config, Preset};
-  use crate::service::WakeruApiServiceFull;
+  use crate::errors::Result as ApiResult;
+  use crate::models::{WakeruRequest, WakeruResponse};
+  use crate::service::WakeruApiService;
+
+  /// テスト用のダミー実装（辞書を一切触らない）
+  #[derive(Clone)]
+  struct DummyService;
+
+  impl WakeruApiService for DummyService {
+    fn analyze(&self, _request: WakeruRequest) -> ApiResult<WakeruResponse> {
+      Ok(WakeruResponse {
+        tokens: Vec::new(),
+        elapsed_ms: 0,
+      })
+    }
+  }
 
   fn create_test_state() -> AppState {
     let config = Config {
@@ -63,9 +78,9 @@ mod tests {
       preset: Preset::UnidicCwj,
     };
 
-    let service = WakeruApiServiceFull::new(&config)
-      .expect("辞書ロードに失敗しました: テスト環境を確認してください");
-    AppState::new(config, Arc::new(service))
+    // スタブを注入（辞書ロード不要）
+    let service = Arc::new(DummyService) as Arc<dyn WakeruApiService>;
+    AppState::new(config, service)
   }
 
   #[test]

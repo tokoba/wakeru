@@ -53,6 +53,9 @@ pedantic = { level = "allow" }
 [workspace.metadata]
 project-type = "examples"
 
+[patch.crates-io]
+wakeru = { path = "crates/wakeru" }
+
 [profile.dev]
 incremental = true
 debug = 2

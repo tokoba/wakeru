@@ -144,7 +144,9 @@ mod tests {
     }
   }
 
+  // 辞書依存テストは with_dict_tests feature で opt-in
   #[test]
+  #[cfg_attr(not(feature = "with_dict_tests"), ignore)]
   fn test_service_creation() {
     let config = create_test_config();
 
@@ -160,6 +162,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg_attr(not(feature = "with_dict_tests"), ignore)]
   fn test_empty_text_error() {
     let config = create_test_config();
     let service = WakeruApiServiceFull::new(&config)
@@ -173,6 +176,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg_attr(not(feature = "with_dict_tests"), ignore)]
   fn test_text_too_long_error() {
     let config = create_test_config();
     let service = WakeruApiServiceFull::new(&config)
@@ -184,6 +188,7 @@ mod tests {
     assert_eq!(err.code(), "text_too_long");
   }
 
+  // これは辞書ダウンロード不要なので常に実行してよい
   #[test]
   fn test_preset_to_vibrato_kind() {
     use vibrato_rkyv::dictionary::PresetDictionaryKind;

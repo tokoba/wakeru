@@ -2725,7 +2725,7 @@ dependencies = [
 
 [[package]]
 name = "wakeru"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dirs",
  "rust-stemmers",
@@ -2741,7 +2741,7 @@ dependencies = [
 
 [[package]]
 name = "wakeru-api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "axum",
  "serde",
