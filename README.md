@@ -81,16 +81,16 @@ The `scripts` directory contains sample scripts for performing morphological ana
 ### Start wakeru-api
 
 Open a terminal and start wakeru-api.
-By default, http://127.0.0.1:5530 is used.
+By default, <http://127.0.0.1:5530> is used.
 
 ```sh
 $ ./scripts/run_api.sh
-warning: C:\\Drive\\rust\\wakeru\\Cargo.toml: unused manifest key: workspace.dev-dependencies
-    Finished `dev` profile [unoptimized & debuginfo] target(s) in 0.28s
-     Running `target\\debug\\wakeru-api.exe`
-2026-02-19T12:09:57.721670Z  INFO wakeru_api: Configuration loaded preset=UnidicCwj
-2026-02-19T12:09:57.723958Z  INFO wakeru_api: Morphological analysis service initialized
-2026-02-19T12:09:57.725096Z  INFO wakeru_api::api::routes: Starting server: http://127.0.0.1:5530
+warning: C:\Drive\rust\wakeru\Cargo.toml: unused manifest key: workspace.dev-dependencies
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.28s
+     Running `target\debug\wakeru-api.exe`
+2026-02-19T12:09:57.721670Z  INFO wakeru_api: 設定を読み込みました preset=UnidicCwj
+2026-02-19T12:09:57.723958Z  INFO wakeru_api: 形態素解析サービスを初期化しました
+2026-02-19T12:09:57.725096Z  INFO wakeru_api::api::routes: サーバーを起動します: http://127.0.0.1:5530
 ```
 
 ### Sending a request to wakeru-api
@@ -99,12 +99,90 @@ Open another terminal and send a morphological analysis request to wakeru-api, s
 
 ```sh
 $ ./scripts/run_api_test.sh
-{"tokens":[{"surface":"Hello","pos":"noun","lemma":"hello","start_byte":0,"end_byte":5,"should_index":true},{"surface":"world","pos":"noun","lemma":"world","start_byte":6,"end_byte":11,"should_index":true}]}
+{"tokens":[{"surface":"親譲り","feature":"名詞,普通名詞,一般,*,*,*,オヤユズリ,親譲り,親譲り,オヤユズリ,親譲り,オヤユズリ,和,*,*,*,*,*,*,体,オヤユズリ,オヤユズリ,オヤユズリ,オヤユズリ,3,C1,*,15020986726490624,54646","pos":"名詞","pos_detail1":"普通名詞","pos_detail2":"一般","pos_detail3":"*","lemma":"オヤユズリ","reading":"親譲り","pronunciation":"親譲り","start_byte":0,"end_byte":9,"should_index":true}}
 ```
 
 The result formatted in JSON looks like the following:
 
 [Input](./scripts/sample_input_text.json) | [Output](./scripts/wakeru_api_result.json)
+
+```json
+{
+  "tokens": [
+    {
+      "surface": "親譲り",
+      "feature": "名詞,普通名詞,一般,*,*,*,オヤユズリ,親譲り,親譲り,オヤユズリ,親譲り,オヤユズリ,和,*,*,*,*,*,*,体,オヤユズリ,オヤユズリ,オヤユズリ,オヤユズリ,3,C1,*,15020986726490624,54646",
+      "pos": "名詞",
+      "pos_detail1": "普通名詞",
+      "pos_detail2": "一般",
+      "pos_detail3": "*",
+      "lemma": "オヤユズリ",
+      "reading": "親譲り",
+      "pronunciation": "親譲り",
+      "start_byte": 0,
+      "end_byte": 9,
+      "should_index": true
+    },
+    {
+      "surface": "の",
+      "feature": "助詞,格助詞,*,*,*,*,ノ,の,の,ノ,の,ノ,和,*,*,*,*,*,*,格助,ノ,ノ,ノ,ノ,*,名詞%F1,*,7968444268028416,28989",
+      "pos": "助詞",
+      "pos_detail1": "格助詞",
+      "pos_detail2": "*",
+      "pos_detail3": "*",
+      "lemma": "ノ",
+      "reading": "の",
+      "pronunciation": "の",
+      "start_byte": 9,
+      "end_byte": 12,
+      "should_index": false
+    },
+    {
+      "surface": "無鉄砲",
+      "feature": "名詞,普通名詞,形状詞可能,*,*,*,ムテッポウ,無鉄砲,無鉄砲,ムテッポー,無鉄砲,ムテッポー,漢,*,*,*,*,*,*,体,ムテッポウ,ムテッポウ,ムテッポウ,ムテッポウ,2,C1,*,10213372134040064,37156",
+      "pos": "名詞",
+      "pos_detail1": "普通名詞",
+      "pos_detail2": "形状詞可能",
+      "pos_detail3": "*",
+      "lemma": "ムテッポウ",
+      "reading": "無鉄砲",
+      "pronunciation": "無鉄砲",
+      "start_byte": 12,
+      "end_byte": 21,
+      "should_index": true
+    },
+    {
+      "surface": "で",
+      "feature": "助動詞,*,*,*,助動詞-ダ,連用形-一般,ダ,だ,で,デ,だ,ダ,和,*,*,*,*,*,*,助動,デ,ダ,デ,ダ,*,名詞%F1,*,6299110739157633,22916",
+      "pos": "助動詞",
+      "pos_detail1": "*",
+      "pos_detail2": "*",
+      "pos_detail3": "*",
+      "lemma": "ダ",
+      "reading": "だ",
+      "pronunciation": "で",
+      "start_byte": 21,
+      "end_byte": 24,
+      "should_index": false
+    },
+    {
+      "surface": "小供",
+      "feature": "名詞,普通名詞,一般,*,*,*,コドモ,子供,小供,コドモ,小供,コドモ,和,*,*,*,*,*,*,体,コドモ,コドモ,コドモ,コドモ,0,C2,*,3541535710913024,12884",
+      "pos": "名詞",
+      "pos_detail1": "普通名詞",
+      "pos_detail2": "一般",
+      "pos_detail3": "*",
+      "lemma": "コドモ",
+      "reading": "子供",
+      "pronunciation": "小供",
+      "start_byte": 24,
+      "end_byte": 30,
+      "should_index": true
+    },
+  ],
+  "elapsed_ms": 1
+}
+```
 
 ## Architecture
 
