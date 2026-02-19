@@ -1,0 +1,63 @@
+[workspace]
+members = ["crates/*"]
+exclude = ["crates/_template-*"]
+
+# As of the year 2026, resolver "3" is the latest. (In Rust edition 2024, resolver "3" is the default.)
+resolver = "3"
+
+[workspace.package]
+version = "0.1.1"
+authors = ["tokoba"]
+license = "MIT"
+description = "Japanese morphological analysis and full-text search library using vibrato-rkyv and tantivy for RAG pipelines"
+repository = "https://github.com/tokoba/wakeru"
+readme = "README.md"
+rust-version = "1.93.0"
+# As of the year 2026, Rust Edition 2024 is the latest.
+edition = "2024"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1.0.101"
+thiserror = "2.0.18"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+tokio = { version = "1.49.0", features = ["macros", "rt-multi-thread"] }
+tempfile = "3.25.0"
+
+# vibrato-rkyv
+dirs = "6.0.0"
+vibrato-rkyv = "0.7.3"
+tantivy = "0.25.0"
+rust-stemmers = "1.2.0"
+
+# Web framework
+axum = { version = "0.8.8", features = ["macros", "json"] }
+tower = "0.5.3"
+tower-http = { version = "0.6.8", features = ["trace"] }
+
+[workspace.dev-dependencies]
+
+
+[workspace.lints.rust]
+warnings = { level = "warn" }
+unused = { level = "warn" }
+missing_docs = { level = "warn" }
+
+[workspace.lints.clippy]
+all = { level = "warn" }
+pedantic = { level = "allow" }
+
+[workspace.metadata]
+project-type = "examples"
+
+[profile.dev]
+incremental = true
+debug = 2
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"

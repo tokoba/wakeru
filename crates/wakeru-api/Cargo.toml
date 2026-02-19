@@ -1,0 +1,37 @@
+[package]
+name = "wakeru-api"
+edition.workspace = true
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "HTTP API server for the wakeru morphological analysis library"
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+# 自社クレート
+wakeru = { path = "../wakeru" }
+
+# Web フレームワーク
+axum.workspace = true
+tokio = { workspace = true }
+tower.workspace = true
+tower-http.workspace = true
+
+# シリアライゼーション
+serde.workspace = true
+serde_json.workspace = true
+
+# 形態素解析
+vibrato-rkyv.workspace = true
+
+# ロギング
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# エラーハンドリング
+thiserror.workspace = true
+
+[lints]
+workspace = true

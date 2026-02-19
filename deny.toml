@@ -1,0 +1,80 @@
+# cargo-deny configuration for security and license checking
+
+[licenses]
+# List of explicitly allowed licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "MPL-2.0",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+# The confidence threshold for license text detection (0.0-1.0)
+confidence-threshold = 0.8
+
+# Exceptions to allow list (add as needed)
+# [[licenses.exceptions]]
+# name = "some-crate"
+# version = "1.0"
+# allow = ["GPL-3.0"]
+
+[bans]
+# Deny multiple versions of the same crate
+multiple-versions = "deny"
+
+# Specific exceptions for multiple versions
+skip = [
+    { name = "windows-sys", reason = "Windows dependencies often require different versions" },
+    { name = "windows_x86_64_msvc", reason = "Windows dependencies often require different versions" },
+    { name = "windows_x86_64_gnu", reason = "Windows dependencies often require different versions" },
+    { name = "windows_x86_64_gnullvm", reason = "Windows dependencies often require different versions" },
+    { name = "windows_aarch64_gnullvm", reason = "Windows dependencies often require different versions" },
+    { name = "windows_aarch64_msvc", reason = "Windows dependencies often require different versions" },
+    { name = "windows_i686_gnu", reason = "Windows dependencies often require different versions" },
+    { name = "windows_i686_msvc", reason = "Windows dependencies often require different versions" },
+    { name = "windows_i686_gnullvm", reason = "Windows dependencies often require different versions" },
+    { name = "windows-targets", reason = "Windows dependencies often require different versions" },
+    { name = "getrandom", reason = "Multiple versions required by different dependencies" },
+    { name = "hashbrown", reason = "Multiple versions required by different dependencies" },
+    { name = "rand", reason = "Multiple versions required by different dependencies" },
+    { name = "rand_core", reason = "Multiple versions required by different dependencies" },
+    { name = "rand_chacha", reason = "Multiple versions required by different dependencies" },
+]
+
+# Skip specific dependencies by tree
+# [[bans.skip-tree]]
+# name = "some-crate"
+
+# Deny specific dangerous crates
+[[bans.deny]]
+name = "curl"
+reason = "Use reqwest instead for better Rust ecosystem integration"
+
+# Note: openssl/openssl-sys are used transitively via reqwest -> native-tls
+# Consider using rustls instead for better security and no OpenSSL dependency
+
+[advisories]
+# Patch the database at least weekly
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+
+# Ignore specific advisories (add as needed)
+[[advisories.ignore]]
+id = "RUSTSEC-2024-0436"
+reason = "paste is unmaintained but no alternative available yet. Used transitively via vibrato-rkyv -> argmin."
+
+[sources]
+# Require git dependencies to be over HTTPS
+allow-git = []
+
+# Unknown sources are not allowed
+unknown-registry = "deny"
+unknown-git = "deny"
