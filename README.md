@@ -74,6 +74,38 @@ You can run the bundled example with:
 cargo run --example example_wakeru
 ```
 
+## Running the sample
+
+The `scripts` directory contains sample scripts for performing morphological analysis using wakeru.
+
+### Start wakeru-api
+
+Open a terminal and start wakeru-api.
+By default, http://127.0.0.1:5530 is used.
+
+```sh
+$ ./scripts/run_api.sh
+warning: C:\\Drive\\rust\\wakeru\\Cargo.toml: unused manifest key: workspace.dev-dependencies
+    Finished `dev` profile [unoptimized & debuginfo] target(s) in 0.28s
+     Running `target\\debug\\wakeru-api.exe`
+2026-02-19T12:09:57.721670Z  INFO wakeru_api: Configuration loaded preset=UnidicCwj
+2026-02-19T12:09:57.723958Z  INFO wakeru_api: Morphological analysis service initialized
+2026-02-19T12:09:57.725096Z  INFO wakeru_api::api::routes: Starting server: http://127.0.0.1:5530
+```
+
+### Sending a request to wakeru-api
+
+Open another terminal and send a morphological analysis request to wakeru-api, specifying a JSON file.
+
+```sh
+$ ./scripts/run_api_test.sh
+{"tokens":[{"surface":"Hello","pos":"noun","lemma":"hello","start_byte":0,"end_byte":5,"should_index":true},{"surface":"world","pos":"noun","lemma":"world","start_byte":6,"end_byte":11,"should_index":true}]}
+```
+
+The result formatted in JSON looks like the following:
+
+[Input](./scripts/sample_input_text.json) | [Output](./scripts/wakeru_api_result.json)
+
 ## Architecture
 
 ```text
