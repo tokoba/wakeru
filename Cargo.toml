@@ -6,7 +6,7 @@ exclude = ["crates/_template-*"]
 resolver = "3"
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 authors = ["tokoba"]
 license = "MIT"
 description = "Japanese morphological analysis and full-text search library using vibrato-rkyv and tantivy for RAG pipelines"
