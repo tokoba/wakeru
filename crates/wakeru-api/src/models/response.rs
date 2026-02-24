@@ -1,10 +1,10 @@
-//! レスポンスモデル定義
+//! Response Model Definition
 
 use serde::Serialize;
 
-/// feature配列のインデックス定数
+/// Constants for feature array indices
 ///
-/// MeCab/IPA辞書形式の素性配列における各フィールドの位置
+/// Position of each field in the feature array of MeCab/IPAdic dictionary format
 const IDX_POS: usize = 0;
 const IDX_POS_DETAIL1: usize = 1;
 const IDX_POS_DETAIL2: usize = 2;
@@ -13,58 +13,58 @@ const IDX_LEMMA: usize = 6;
 const IDX_READING: usize = 7;
 const IDX_PRONUNCIATION: usize = 8;
 
-/// 形態素解析レスポンス
+/// Morphological Analysis Response
 #[derive(Debug, Serialize)]
 pub struct WakeruResponse {
-  /// 解析結果のトークン列
+  /// Token sequence of analysis result
   pub tokens: Vec<TokenDto>,
-  /// 処理時間（ミリ秒）
+  /// Elapsed time (milliseconds)
   pub elapsed_ms: u64,
 }
 
-/// トークン情報（DTO）
+/// Token Information (DTO)
 ///
-/// vibrato-rkyv のトークン情報を API レスポンス用に変換したもの。
+/// Converted from vibrato-rkyv token information for API response.
 #[derive(Debug, Clone, Serialize)]
 pub struct TokenDto {
-  /// 表層形（元テキストに出現する文字列）
+  /// Surface form (string appearing in original text)
   pub surface: String,
-  /// 素性（品詞情報などの完全な文字列）
+  /// Feature (complete string including part-of-speech info)
   pub feature: String,
-  /// 品詞（第1要素）
+  /// Part of Speech (1st element)
   pub pos: String,
-  /// 品詞細分類1（第2要素）
+  /// POS detail 1 (2nd element)
   pub pos_detail1: String,
-  /// 品詞細分類2（第3要素）
+  /// POS detail 2 (3rd element)
   pub pos_detail2: String,
-  /// 品詞細分類3（第4要素）
+  /// POS detail 3 (4th element)
   pub pos_detail3: String,
-  /// 語彙素読み（辞書形の読み）
+  /// Lemma (dictionary form reading)
   #[serde(skip_serializing_if = "Option::is_none")]
   pub lemma: Option<String>,
-  /// 読み
+  /// Reading
   #[serde(skip_serializing_if = "Option::is_none")]
   pub reading: Option<String>,
-  /// 発音
+  /// Pronunciation
   #[serde(skip_serializing_if = "Option::is_none")]
   pub pronunciation: Option<String>,
-  /// 開始バイト位置
+  /// Start byte position
   pub start_byte: usize,
-  /// 終了バイト位置
+  /// End byte position
   pub end_byte: usize,
-  /// インデックス対象かどうか（RAG用途でのフィルタリング用）
+  /// Whether to index (for filtering in RAG usage)
   pub should_index: bool,
 }
 
 impl TokenDto {
-  /// vibrato-rkyv のトークンから変換する
+  /// Convert from vibrato-rkyv token
   ///
   /// # Arguments
-  /// * `surface` - 表層形
-  /// * `feature` - 素性文字列（カンマ区切り）
-  /// * `start_byte` - 開始バイト位置
-  /// * `end_byte` - 終了バイト位置
-  /// * `should_index` - インデックス対象かどうか
+  /// * `surface` - Surface form
+  /// * `feature` - Feature string (comma separated)
+  /// * `start_byte` - Start byte position
+  /// * `end_byte` - End byte position
+  /// * `should_index` - Whether to index
   #[must_use]
   pub fn from_feature(
     surface: &str,
@@ -75,12 +75,12 @@ impl TokenDto {
   ) -> Self {
     let parts: Vec<&str> = feature.splitn(13, ',').collect();
 
-    // 各フィールドを抽出（インデックスが範囲内の場合のみ）
+    // Extract each field (only if index is within range)
     let get_part =
       |idx: usize| -> String { parts.get(idx).map_or(String::new(), |s| (*s).to_string()) };
 
-    // 語彙素読み（辞書形）は辞書によって位置が異なる
-    // UniDic: 7番目に基本形がある場合が多い
+    // Lemma (dictionary form) position varies by dictionary
+    // UniDic: Often at 7th position
     let lemma = parts.get(IDX_LEMMA).and_then(|s| {
       if s.is_empty() || *s == "*" {
         None
@@ -89,7 +89,7 @@ impl TokenDto {
       }
     });
 
-    // 読みと発音の抽出（辞書によって位置が異なるため、柔軟に対応）
+    // Extract reading and pronunciation (handle flexibly as position varies by dictionary)
     let reading = parts.get(IDX_READING).and_then(|s| {
       if s.is_empty() || *s == "*" {
         None
@@ -148,7 +148,7 @@ mod tests {
 
   #[test]
   fn token_dto_from_feature_short() {
-    // 最小限の素性
+    // Minimal feature
     let feature = "名詞";
     let dto = TokenDto::from_feature("test", feature, 0, 4, false);
 

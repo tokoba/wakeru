@@ -1,18 +1,18 @@
-//! API設定の定数定義
+//! API Configuration Constants
 
-/// 入力テキストの最大長（バイト単位）
+/// Maximum length of input text (in bytes)
 ///
-/// 10MB までのテキストを許可する。
-/// 大きなテキストの処理によるリソース枯渇を防ぐための制限。
+/// Allows text up to 10MB.
+/// Limitation to prevent resource exhaustion due to processing large text.
 pub const MAX_TEXT_LENGTH: usize = 10_000_000;
 
-/// デフォルトのバインドアドレス
+/// Default bind address
 ///
-/// 開発環境での利用を想定した localhost の標準ポート。
+/// Standard port for localhost, assumed for use in development environment.
 pub const DEFAULT_BIND_ADDR: &str = "127.0.0.1:5530";
 
-/// デフォルトの辞書プリセット名
+/// Default dictionary preset name
 ///
-/// UniDic (CWJ) をデフォルトとして使用。
-/// 現代日本語書き言葉コーパスに基づく辞書。
+/// Use UniDic (CWJ) as default.
+/// Dictionary based on Corpus of Contemporary Written Japanese.
 pub const DEFAULT_PRESET_DICT: &str = "unidic-cwj";

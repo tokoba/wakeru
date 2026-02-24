@@ -1,12 +1,12 @@
-//! wakeru-api クレート
+//! wakeru-api crate
 //!
-//! 形態素解析機能を HTTP API として提供する Web サーバー。
+//! Web server providing morphological analysis functionality as HTTP API.
 //!
-//! ## エンドポイント
-//! - `POST /wakeru` - 形態素解析
-//! - `GET /health` - ヘルスチェック
+//! ## Endpoints
+//! - `POST /wakeru` - Morphological Analysis
+//! - `GET /health` - Health Check
 //!
-//! ## 使用例
+//! ## Usage Example
 //! ```bash
 //! curl -X POST http://127.0.0.1:5530/wakeru \
 //!   -H "Content-Type: application/json" \

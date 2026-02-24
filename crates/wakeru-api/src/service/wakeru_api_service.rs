@@ -1,4 +1,4 @@
-//! 形態素解析サービス
+//! Morphological Analysis Service
 
 use std::time::Instant;
 
@@ -11,22 +11,22 @@ use crate::config::{Config, Preset};
 use crate::errors::{ApiError, Result};
 use crate::models::{TokenDto, WakeruRequest, WakeruResponse};
 
-/// 形態素解析サービスの共通インターフェース
+/// Common interface for morphological analysis service
 ///
-/// このトレイトにより、本番実装（`WakeruApiServiceFull`）と
-/// テスト用スタブ／モックを差し替え可能にする。
+/// This trait allows swapping production implementation (`WakeruApiServiceFull`) with
+/// test stubs/mocks.
 pub trait WakeruApiService: Send + Sync {
-  /// 形態素解析を実行する
+  /// Executes morphological analysis
   ///
   /// # Errors
-  /// - 入力エラー（空文字列・長さ超過など）
-  /// - 内部エラー
+  /// - Input error (empty string, length exceeded, etc.)
+  /// - Internal error
   fn analyze(&self, request: WakeruRequest) -> Result<WakeruResponse>;
 }
 
-/// Preset を vibrato-rkyv の PresetDictionaryKind に変換する
+/// Converts Preset to PresetDictionaryKind of vibrato-rkyv
 ///
-/// config 層が vibrato に依存しないよう、サービス層で変換を行う
+/// Conversion is done in the service layer so that the config layer does not depend on vibrato
 #[must_use]
 fn preset_to_vibrato_kind(preset: &Preset) -> vibrato_rkyv::dictionary::PresetDictionaryKind {
   use vibrato_rkyv::dictionary::PresetDictionaryKind;
@@ -37,66 +37,66 @@ fn preset_to_vibrato_kind(preset: &Preset) -> vibrato_rkyv::dictionary::PresetDi
   }
 }
 
-/// 形態素解析サービス
+/// Morphological Analysis Service
 ///
-/// Dictionary と VibratoImpl を直接保持することで、
-/// フィルタリング前の全トークンを取得できる。
+/// By holding Dictionary and VibratoImpl directly,
+/// all tokens before filtering can be obtained.
 #[derive(Clone)]
 pub struct WakeruApiServiceFull {
-  /// vibrato トークナイザー（内部実装）
+  /// vibrato tokenizer (internal implementation)
   inner: VibratoImpl,
 }
 
 impl WakeruApiServiceFull {
-  /// サービスを初期化する
+  /// Initializes the service
   ///
   /// # Arguments
-  /// * `config` - 設定（辞書プリセットを含む）
+  /// * `config` - Configuration (including dictionary preset)
   ///
   /// # Errors
-  /// 辞書のロードに失敗した場合にエラーを返す
+  /// Returns an error if dictionary load fails
   pub fn new(config: &Config) -> Result<Self> {
     let kind = preset_to_vibrato_kind(&config.preset);
 
-    // 辞書マネージャーを作成して辞書をロード
+    // Create dictionary manager and load dictionary
     let manager = DictionaryManager::with_preset(kind)
-      .map_err(|e| ApiError::config(format!("辞書マネージャーの作成に失敗: {}", e)))?;
+      .map_err(|e| ApiError::config(format!("Failed to create dictionary manager: {}", e)))?;
 
     let dict =
-      manager.load().map_err(|e| ApiError::config(format!("辞書のロードに失敗: {}", e)))?;
+      manager.load().map_err(|e| ApiError::config(format!("Failed to load dictionary: {}", e)))?;
 
-    // VibratoImpl を直接作成
+    // Create VibratoImpl directly
     let inner = VibratoImpl::from_shared_dictionary(dict);
 
     Ok(Self { inner })
   }
 
-  /// 形態素解析を実行する（全トークン返却）
+  /// Executes morphological analysis (returns all tokens)
   ///
   /// # Arguments
-  /// * `request` - 解析リクエスト
+  /// * `request` - Analysis request
   ///
   /// # Returns
-  /// 解析結果（全トークン列と処理時間）
+  /// Analysis result (all token sequence and processing time)
   ///
   /// # Errors
-  /// - テキストが空の場合
-  /// - テキストが最大長を超える場合
+  /// - If text is empty
+  /// - If text exceeds maximum length
   pub fn analyze(&self, request: WakeruRequest) -> Result<WakeruResponse> {
-    // テキスト長の検証
+    // Validate text length
     let text_bytes = request.text.len();
     if text_bytes == 0 {
-      return Err(ApiError::invalid_input("テキストが空です"));
+      return Err(ApiError::invalid_input("Text is empty"));
     }
 
     if text_bytes > MAX_TEXT_LENGTH {
       return Err(ApiError::text_too_long(text_bytes, MAX_TEXT_LENGTH));
     }
 
-    // 処理時間計測開始
+    // Start measuring processing time
     let start = Instant::now();
 
-    // ワーカーを作成して解析
+    // Create worker and analyze
     let mut worker = self.inner.new_worker();
     worker.reset_sentence(&request.text);
     worker.tokenize();
@@ -109,25 +109,25 @@ impl WakeruApiServiceFull {
       let start_byte = token.range_byte().start;
       let end_byte = token.range_byte().end;
 
-      // インデックス対象かどうかを判定
+      // Determine whether to index
       let should_index_flag = should_index(feature);
 
       let dto = TokenDto::from_feature(surface, feature, start_byte, end_byte, should_index_flag);
       tokens.push(dto);
     }
 
-    // 処理時間計測終了
+    // End measuring processing time
     let elapsed_ms = start.elapsed().as_millis() as u64;
 
     Ok(WakeruResponse { tokens, elapsed_ms })
   }
 }
 
-/// トレイト `WakeruApiService` の本番実装
+/// Production implementation of trait `WakeruApiService`
 impl WakeruApiService for WakeruApiServiceFull {
   fn analyze(&self, request: WakeruRequest) -> Result<WakeruResponse> {
-    // 注意: `self.analyze(...)` と書くとトレイトメソッドを再帰呼び出ししてしまうので、
-    // 明示的に固有メソッドを呼ぶ。
+    // Note: Writing `self.analyze(...)` would recursively call the trait method,
+    // so explicitly call the inherent method.
     WakeruApiServiceFull::analyze(self, request)
   }
 }
@@ -144,15 +144,15 @@ mod tests {
     }
   }
 
-  // 辞書依存テストは with_dict_tests feature で opt-in
+  // Dictionary-dependent tests are opt-in with with_dict_tests feature
   #[test]
   #[cfg_attr(not(feature = "with_dict_tests"), ignore)]
   fn test_service_creation() {
     let config = create_test_config();
 
-    // 辞書がロードできるか確認
+    // Confirm dictionary can be loaded
     let service = WakeruApiServiceFull::new(&config)
-      .expect("辞書ロードに失敗しました: テスト環境を確認してください");
+      .expect("Failed to load dictionary: check test environment");
     let response = service.analyze(WakeruRequest {
       text: "東京".to_string(),
     });
@@ -166,7 +166,7 @@ mod tests {
   fn test_empty_text_error() {
     let config = create_test_config();
     let service = WakeruApiServiceFull::new(&config)
-      .expect("辞書ロードに失敗しました: テスト環境を確認してください");
+      .expect("Failed to load dictionary: check test environment");
     let result = service.analyze(WakeruRequest {
       text: "".to_string(),
     });
@@ -180,7 +180,7 @@ mod tests {
   fn test_text_too_long_error() {
     let config = create_test_config();
     let service = WakeruApiServiceFull::new(&config)
-      .expect("辞書ロードに失敗しました: テスト環境を確認してください");
+      .expect("Failed to load dictionary: check test environment");
     let long_text = "a".repeat(MAX_TEXT_LENGTH + 1);
     let result = service.analyze(WakeruRequest { text: long_text });
     assert!(result.is_err());
@@ -188,7 +188,7 @@ mod tests {
     assert_eq!(err.code(), "text_too_long");
   }
 
-  // これは辞書ダウンロード不要なので常に実行してよい
+  // This does not require dictionary download so can always be run
   #[test]
   fn test_preset_to_vibrato_kind() {
     use vibrato_rkyv::dictionary::PresetDictionaryKind;

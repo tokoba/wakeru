@@ -1,4 +1,4 @@
-//! 設定モジュール
+//! Config module
 
 mod constants;
 mod env;

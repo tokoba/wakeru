@@ -1,4 +1,4 @@
-//! HTTPハンドラー定義
+//! HTTP Handler Definitions
 
 use axum::{Json, extract::State};
 use tracing::{debug, error, info};
@@ -8,55 +8,55 @@ use crate::models::{WakeruRequest, WakeruResponse};
 
 use super::state::AppState;
 
-/// POST /wakeru エンドポイント
+/// POST /wakeru Endpoint
 ///
-/// 日本語テキストの形態素解析を実行する。
+/// Performs morphological analysis on Japanese text.
 ///
 /// # Request Body
 /// ```json
-/// { "text": "解析対象のテキスト" }
+/// { "text": "Text to analyze" }
 /// ```
 ///
 /// # Response
-/// - 200 OK: 解析成功
-/// - 400 Bad Request: 入力エラー（空テキスト、テキスト長超過）
-/// - 500 Internal Server Error: 内部エラー
+/// - 200 OK: Analysis successful
+/// - 400 Bad Request: Input error (Empty text, Text too long)
+/// - 500 Internal Server Error: Internal error
 pub async fn post_wakeru(
   State(state): State<AppState>,
   Json(request): Json<WakeruRequest>,
 ) -> Result<Json<WakeruResponse>, ApiError> {
-  debug!(text_len = request.text.len(), "形態素解析リクエストを受信");
+  debug!(text_len = request.text.len(), "Received morphological analysis request");
 
-  // CPUバウンドな処理を spawn_blocking で実行
-  // 形態素解析は重い処理のため、非同期ランタイムをブロックしないよう分離
+  // Execute CPU-bound processing with spawn_blocking
+  // Morphological analysis is a heavy process, so separate it to avoid blocking the async runtime
   let service = state.service.clone();
 
   let response =
     tokio::task::spawn_blocking(move || service.analyze(request)).await.map_err(|e| {
-      error!(error = %e, "spawn_blocking エラー");
-      ApiError::internal("処理の実行に失敗しました")
+      error!(error = %e, "spawn_blocking error");
+      ApiError::internal("Failed to execute processing")
     })??;
 
   info!(
     token_count = response.tokens.len(),
     elapsed_ms = response.elapsed_ms,
-    "形態素解析完了"
+    "Morphological analysis completed"
   );
 
   Ok(Json(response))
 }
 
-/// ヘルスチェックエンドポイント
+/// Health Check Endpoint
 ///
-/// サーバーが稼働しているかを確認する。
+/// Checks if the server is running.
 pub async fn health_check() -> &'static str {
   "OK"
 }
 
-/// POST /wakeru エンドポイント（同期的バージョン）
+/// POST /wakeru Endpoint (Synchronous version)
 ///
-/// 処理が軽い場合はこちらを使用可能。
-/// デフォルトでは spawn_blocking 版を使用する。
+/// Can be used if processing is light.
+/// Uses spawn_blocking version by default.
 #[allow(dead_code)]
 pub async fn post_wakeru_sync(
   State(state): State<AppState>,
@@ -64,7 +64,7 @@ pub async fn post_wakeru_sync(
 ) -> Result<Json<WakeruResponse>, ApiError> {
   debug!(
     text_len = request.text.len(),
-    "形態素解析リクエストを受信（同期版）"
+    "Received morphological analysis request (Sync version)"
   );
 
   let response = state.service.analyze(request)?;
@@ -72,7 +72,7 @@ pub async fn post_wakeru_sync(
   info!(
     token_count = response.tokens.len(),
     elapsed_ms = response.elapsed_ms,
-    "形態素解析完了"
+    "Morphological analysis completed"
   );
 
   Ok(Json(response))
@@ -82,7 +82,7 @@ pub async fn post_wakeru_sync(
 mod tests {
   #[test]
   fn test_health_check_signature() {
-    // health_check が正常にコンパイルできることを確認
-    // 実際のテストは統合テストで行う
+    // Confirm health_check compiles successfully
+    // Actual tests are done in integration tests
   }
 }

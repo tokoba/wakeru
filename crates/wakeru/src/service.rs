@@ -1,18 +1,18 @@
 // crates/wakeru/src/service.rs
 
-//! WakeruService: wakeru クレートの統合ファサード。
+//! WakeruService: Integrated facade for wakeru crate.
 //!
-//! - 辞書管理 (DictionaryManager)
-//! - インデックス管理 (IndexManager) - 言語ごと
-//! - 検索エンジン (SearchEngine) - 言語ごと
+//! - Dictionary Management (DictionaryManager)
+//! - Index Management (IndexManager) - Per language
+//! - Search Engine (SearchEngine) - Per language
 //!
-//! RAG パイプラインなどの外部からは、この構造体だけを意識すればよい。
+//! From outside such as RAG pipeline, only this structure needs to be considered.
 //!
-//! # 多言語対応
+//! # Multi-language support
 //!
-//! 言語ごとに独立したインデックスと検索エンジンを持ちます：
-//! - 日本語: `data/index/ja/` (VibratoTokenizer + N-gram)
-//! - 英語: `data/index/en/` (SimpleTokenizer + LowerCaser)
+//! Has independent index and search engine for each language:
+//! - Japanese: `data/index/ja/` (VibratoTokenizer + N-gram)
+//! - English: `data/index/en/` (SimpleTokenizer + LowerCaser)
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -27,53 +27,53 @@ use crate::models::{Document, SearchResult};
 use crate::searcher::SearchEngine;
 use crate::tokenizer::vibrato_tokenizer::VibratoTokenizer;
 
-/// 言語ごとの Index と SearchEngine をペアにする構造体。
+/// Structure pairing Index and SearchEngine per language.
 ///
-/// これにより言語ミスマッチを構造的に防止する。
+/// This structurally prevents language mismatch.
 struct PerLanguage {
-  #[allow(dead_code)] // 将来的にアクセサで使用予定
+  #[allow(dead_code)] // Planned to be used in accessors in the future
   index_manager: IndexManager,
   search_engine: SearchEngine,
 }
 
-/// wakeru クレートの統合ファサード。
+/// Integrated facade for wakeru crate.
 ///
-/// RAG パイプラインからはこの構造体を通じて全機能にアクセスする。
+/// RAG pipeline accesses all functions through this structure.
 ///
-/// # 多言語サポート
+/// # Multi-language support
 ///
-/// `HashMap<Language, PerLanguage>` で各言語の IndexManager と SearchEngine を管理。
-/// 言語を指定してインデックス作成・検索を行う。
+/// Manages IndexManager and SearchEngine for each language with `HashMap<Language, PerLanguage>`.
+/// Performs index creation and search by specifying language.
 pub struct WakeruService {
-  /// デフォルト言語
+  /// Default language
   default_language: Language,
 
-  /// 言語ごとの IndexManager + SearchEngine
+  /// IndexManager + SearchEngine per language
   langs: HashMap<Language, PerLanguage>,
 
-  /// 辞書マネージャ（日本語用）
+  /// Dictionary Manager (for Japanese)
   dictionary_manager: Option<DictionaryManager>,
 }
 
 impl WakeruService {
-  /// 初期化（辞書ロード + 各言語のインデックス open/create + SearchEngine 構築）
+  /// Initialization (Load dictionary + Open/Create index for each language + Build SearchEngine)
   ///
-  /// # 処理フロー
-  /// 1. 設定の妥当性を検証
-  /// 2. 日本語サポート時のみ DictionaryManager を構築
-  /// 3. 各サポート言語の IndexManager + SearchEngine を構築
+  /// # Process Flow
+  /// 1. Validate configuration
+  /// 2. Build DictionaryManager only when Japanese is supported
+  /// 3. Build IndexManager + SearchEngine for each supported language
   ///
-  /// # エラー
-  /// - 設定が不正（languages が空、default_language が含まれていない等）
-  /// - 辞書ロード失敗
-  /// - インデックス作成/オープン失敗
+  /// # Errors
+  /// - Invalid configuration (empty languages, default_language not included, etc.)
+  /// - Dictionary load failure
+  /// - Index creation/open failure
   pub fn init(config: &WakeruConfig) -> WakeruResult<Self> {
-    // 設定の妥当性を検証（ConfigError は #[from] で WakeruError に自動変換）
+    // Validate configuration (ConfigError is automatically converted to WakeruError with #[from])
     config.validate()?;
 
     let default_language = config.default_language();
 
-    // 日本語サポート時のみ辞書マネージャを構築
+    // Build dictionary manager only when Japanese is supported
     let (dictionary_manager, ja_analyzer) = if config.supported_languages().contains(&Language::Ja)
     {
       let manager = DictionaryManager::with_preset(config.dictionary_preset())?;
@@ -87,14 +87,14 @@ impl WakeruService {
 
     let mut langs = HashMap::new();
 
-    // 各言語の IndexManager + SearchEngine を構築
+    // Build IndexManager + SearchEngine for each language
     for &lang in config.supported_languages() {
       let index_path = config.index_path_for_language(lang);
 
-      // 言語に応じたトークナイザーを準備
+      // Prepare tokenizer according to language
       let lang_analyzer = match lang {
         Language::Ja => ja_analyzer.as_ref().map(|a| (**a).clone()),
-        Language::En => None, // 英語は IndexManager 内部で作成
+        Language::En => None, // English is created inside IndexManager
       };
 
       let index_manager = IndexManager::open_or_create(&index_path, lang, lang_analyzer)?;
@@ -116,15 +116,15 @@ impl WakeruService {
     })
   }
 
-  /// 指定言語でドキュメントをインデックスに追加する。
+  /// Adds documents to index in specified language.
   ///
-  /// # 引数
-  /// - `language`: 対象言語
-  /// - `documents`: 追加するドキュメント
+  /// # Arguments
+  /// - `language`: Target language
+  /// - `documents`: Documents to add
   ///
-  /// # エラー
-  /// - サポートされていない言語
-  /// - インデックス書き込みエラー
+  /// # Errors
+  /// - Unsupported language
+  /// - Index write error
   pub fn index_documents_with_language(
     &self,
     language: Language,
@@ -135,23 +135,23 @@ impl WakeruService {
     per_lang.index_manager.add_documents(documents).map(|_| ()).map_err(WakeruError::from)
   }
 
-  /// デフォルト言語でドキュメントをインデックスに追加する。
+  /// Adds documents to index in default language.
   ///
-  /// `AddDocumentsReport` は現在は返さず、エラーのみ上位へ伝播します。
+  /// `AddDocumentsReport` is not returned currently, only error propagates to upper layer.
   pub fn index_documents(&self, documents: &[Document]) -> WakeruResult<()> {
     self.index_documents_with_language(self.default_language, documents)
   }
 
-  /// 指定言語で BM25 検索を実行する。
+  /// Executes BM25 search in specified language.
   ///
-  /// # 引数
-  /// - `language`: 検索対象言語
-  /// - `query`: 検索クエリ
-  /// - `limit`: 結果の最大件数
+  /// # Arguments
+  /// - `language`: Search target language
+  /// - `query`: Search query
+  /// - `limit`: Maximum number of results
   ///
-  /// # エラー
-  /// - サポートされていない言語
-  /// - クエリ解析エラー
+  /// # Errors
+  /// - Unsupported language
+  /// - Query parse error
   pub fn search_with_language(
     &self,
     language: Language,
@@ -163,24 +163,24 @@ impl WakeruService {
     per_lang.search_engine.search(query, limit).map_err(WakeruError::from)
   }
 
-  /// デフォルト言語で BM25 検索を実行する。
+  /// Executes BM25 search in default language.
   ///
-  /// `limit` はそのまま `SearchEngine::search` に渡しています
-  ///（必要に応じて呼び出し側で `default_limit` / `max_limit` を考慮してください）。
+  /// `limit` is passed to `SearchEngine::search` as is.
+  /// (Caller should consider `default_limit` / `max_limit` as needed).
   pub fn search(&self, query: &str, limit: usize) -> WakeruResult<Vec<SearchResult>> {
     self.search_with_language(self.default_language, query, limit)
   }
 
-  /// 指定言語で形態素解析済みトークンの OR 検索を実行する。
+  /// Executes OR search of morphologically analyzed tokens in specified language.
   ///
-  /// # 引数
-  /// - `language`: 検索対象言語
-  /// - `query`: 検索クエリ
-  /// - `limit`: 結果の最大件数
+  /// # Arguments
+  /// - `language`: Search target language
+  /// - `query`: Search query
+  /// - `limit`: Maximum number of results
   ///
-  /// # エラー
-  /// - サポートされていない言語
-  /// - クエリ解析エラー
+  /// # Errors
+  /// - Unsupported language
+  /// - Query parse error
   pub fn search_tokens_or_with_language(
     &self,
     language: Language,
@@ -192,48 +192,48 @@ impl WakeruService {
     per_lang.search_engine.search_tokens_or(query, limit).map_err(WakeruError::from)
   }
 
-  /// デフォルト言語で形態素解析済みトークンの OR 検索を実行するヘルパー。
+  /// Helper to execute OR search of morphologically analyzed tokens in default language.
   ///
-  /// 設計書 5.1 で示されている `search_tokens_or` のラッパです。
+  /// Wrapper for `search_tokens_or` shown in Design Document 5.1.
   pub fn search_tokens_or(&self, query: &str, limit: usize) -> WakeruResult<Vec<SearchResult>> {
     self.search_tokens_or_with_language(self.default_language, query, limit)
   }
 
-  // ===== アクセサ =====
+  // ===== Accessors =====
 
-  /// デフォルト言語を返す。
+  /// Returns default language.
   pub fn default_language(&self) -> Language {
     self.default_language
   }
 
-  /// サポートされている言語一覧を返す。
+  /// Returns list of supported languages.
   pub fn supported_languages(&self) -> Vec<Language> {
     self.langs.keys().copied().collect()
   }
 
-  /// 指定言語がサポートされているか確認する。
+  /// Checks if the specified language is supported.
   pub fn is_language_supported(&self, language: Language) -> bool {
     self.langs.contains_key(&language)
   }
 
-  /// 内部の DictionaryManager への参照を返す（日本語サポート時のみ）。
+  /// Returns reference to internal DictionaryManager (only when Japanese is supported).
   pub fn dictionary_manager(&self) -> Option<&DictionaryManager> {
     self.dictionary_manager.as_ref()
   }
 
-  /// 指定言語の IndexManager への参照を返す。
+  /// Returns reference to IndexManager of specified language.
   pub fn index_manager(&self, language: Language) -> Option<&IndexManager> {
     self.langs.get(&language).map(|p| &p.index_manager)
   }
 
-  /// 指定言語の SearchEngine への参照を返す。
+  /// Returns reference to SearchEngine of specified language.
   pub fn search_engine(&self, language: Language) -> Option<&SearchEngine> {
     self.langs.get(&language).map(|p| &p.search_engine)
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// テストモジュール
+// Test Module
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -245,11 +245,11 @@ mod tests {
   use crate::models::Document;
   use serde_json::json;
 
-  // ─── テスト用ヘルパー関数 ───────────────────────────────────────────────────
+  // ─── Test Helper Functions ───────────────────────────────────────────────────
 
-  /// 英語のみのテスト用 WakeruConfig を作成
+  /// Create WakeruConfig for testing with English only
   ///
-  /// 日本語を含まないため辞書マネージャーが不要になる
+  /// Dictionary manager is unnecessary because Japanese is not included
   fn create_english_only_config(temp_dir: &tempfile::TempDir) -> WakeruConfig {
     WakeruConfig {
       dictionary: DictionaryConfig {
@@ -273,27 +273,27 @@ mod tests {
     }
   }
 
-  /// 英語のみの WakeruService を作成
+  /// Create WakeruService with English only
   fn create_english_service() -> (tempfile::TempDir, WakeruService) {
-    let temp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let temp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let config = create_english_only_config(&temp_dir);
-    let service = WakeruService::init(&config).expect("WakeruService 初期化失敗");
+    let service = WakeruService::init(&config).expect("Failed to initialize WakeruService");
     (temp_dir, service)
   }
 
-  // ─── 初期化テスト ──────────────────────────────────────────────────────────
+  // ─── Initialization Tests ──────────────────────────────────────────────────────────
 
   #[test]
   fn service_initializes_with_english_only() {
     let (_temp_dir, service) = create_english_service();
 
-    // デフォルト言語が英語であることを確認
+    // Confirm default language is English
     assert_eq!(service.default_language(), Language::En);
 
-    // 英語がサポートされていることを確認
+    // Confirm English is supported
     assert!(service.is_language_supported(Language::En));
 
-    // 日本語はサポートされていない（辞書なし）
+    // Japanese is not supported (no dictionary)
     assert!(!service.is_language_supported(Language::Ja));
   }
 
@@ -310,22 +310,22 @@ mod tests {
   fn service_dictionary_manager_is_none_for_english_only() {
     let (_temp_dir, service) = create_english_service();
 
-    // 英語のみの場合は辞書マネージャーが存在しない
+    // Dictionary manager does not exist for English only
     assert!(service.dictionary_manager().is_none());
   }
 
-  // ─── アクセサテスト ────────────────────────────────────────────────────────
+  // ─── Accessor Tests ────────────────────────────────────────────────────────
 
   #[test]
   fn service_index_manager_accessor() {
     let (_temp_dir, service) = create_english_service();
 
-    // 英語の IndexManager が取得できる
+    // English IndexManager can be retrieved
     let index_manager = service.index_manager(Language::En);
     assert!(index_manager.is_some());
     assert_eq!(index_manager.unwrap().language(), Language::En);
 
-    // 日本語の IndexManager は存在しない
+    // Japanese IndexManager does not exist
     assert!(service.index_manager(Language::Ja).is_none());
   }
 
@@ -333,12 +333,12 @@ mod tests {
   fn service_search_engine_accessor() {
     let (_temp_dir, service) = create_english_service();
 
-    // 英語の SearchEngine が取得できる
+    // English SearchEngine can be retrieved
     let search_engine = service.search_engine(Language::En);
     assert!(search_engine.is_some());
     assert_eq!(search_engine.unwrap().language(), Language::En);
 
-    // 日本語の SearchEngine は存在しない
+    // Japanese SearchEngine does not exist
     assert!(service.search_engine(Language::Ja).is_none());
   }
 
@@ -350,7 +350,7 @@ mod tests {
     assert!(!service.is_language_supported(Language::Ja));
   }
 
-  // ─── ドキュメント追加テスト ────────────────────────────────────────────────
+  // ─── Document Addition Tests ────────────────────────────────────────────────
 
   #[test]
   fn service_index_documents_default_language() {
@@ -399,18 +399,18 @@ mod tests {
     assert!(result.is_ok());
   }
 
-  // ─── 検索テスト ────────────────────────────────────────────────────────────
+  // ─── Search Tests ────────────────────────────────────────────────────────────
 
   #[test]
   fn service_search_default_language() {
     let (_temp_dir, service) = create_english_service();
 
     let docs = vec![Document::new("doc-1", "src-1", "Hello world")];
-    service.index_documents(&docs).expect("インデックス失敗");
+    service.index_documents(&docs).expect("Indexing failed");
 
-    // SearchEngine がインデックス時に作成されるため、
-    // 追加後のドキュメントは検索できない（Reader が再ロードされない）
-    // ここではエラーにならないことだけ確認
+    // SearchEngine is created at indexing time,
+    // so documents added afterwards cannot be searched (Reader is not reloaded)
+    // Here we just check that no error occurs
     let result = service.search("hello", 10);
     assert!(result.is_ok());
   }
@@ -420,7 +420,7 @@ mod tests {
     let (_temp_dir, service) = create_english_service();
 
     let docs = vec![Document::new("doc-1", "src-1", "Hello world")];
-    service.index_documents(&docs).expect("インデックス失敗");
+    service.index_documents(&docs).expect("Indexing failed");
 
     let result = service.search_with_language(Language::En, "hello", 10);
     assert!(result.is_ok());
@@ -442,7 +442,7 @@ mod tests {
     let (_temp_dir, service) = create_english_service();
 
     let docs = vec![Document::new("doc-1", "src-1", "Hello world")];
-    service.index_documents(&docs).expect("インデックス失敗");
+    service.index_documents(&docs).expect("Indexing failed");
 
     let result = service.search_tokens_or("hello", 10);
     assert!(result.is_ok());
@@ -453,7 +453,7 @@ mod tests {
     let (_temp_dir, service) = create_english_service();
 
     let docs = vec![Document::new("doc-1", "src-1", "Hello world")];
-    service.index_documents(&docs).expect("インデックス失敗");
+    service.index_documents(&docs).expect("Indexing failed");
 
     let result = service.search_tokens_or_with_language(Language::En, "hello", 10);
     assert!(result.is_ok());
@@ -470,30 +470,30 @@ mod tests {
     assert!(matches!(err, WakeruError::UnsupportedLanguage { .. }));
   }
 
-  // ─── 統合テスト（インデックス→検索）──────────────────────────────────────
+  // ─── Integration Tests (Index -> Search) ──────────────────────────────────────
 
   #[test]
   fn service_full_workflow_index_and_search() {
-    // このテストでは、インデックス作成後に新しい WakeruService を作成して
-    // ドキュメントが正しく永続化されていることを確認
+    // In this test, create a new WakeruService after indexing
+    // to verify that documents are correctly persisted
 
-    let temp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let temp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let config = create_english_only_config(&temp_dir);
 
-    // 1. 最初のサービスでドキュメントを追加
+    // 1. Add documents with the first service
     {
-      let service = WakeruService::init(&config).expect("初期化失敗");
+      let service = WakeruService::init(&config).expect("Initialization failed");
       let docs = vec![
         Document::new("doc-1", "src-1", "Tokyo is the capital of Japan"),
         Document::new("doc-2", "src-1", "Osaka is a major city"),
       ];
-      service.index_documents(&docs).expect("インデックス失敗");
+      service.index_documents(&docs).expect("Indexing failed");
     }
 
-    // 2. 新しいサービスを作成して検索
+    // 2. Create a new service and search
     {
-      let service = WakeruService::init(&config).expect("初期化失敗");
-      let results = service.search("tokyo", 10).expect("検索失敗");
+      let service = WakeruService::init(&config).expect("Initialization failed");
+      let results = service.search("tokyo", 10).expect("Search failed");
 
       assert_eq!(results.len(), 1);
       assert_eq!(results[0].doc_id, "doc-1");
@@ -502,24 +502,24 @@ mod tests {
 
   #[test]
   fn service_full_workflow_with_metadata() {
-    let temp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let temp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let config = create_english_only_config(&temp_dir);
 
-    // 1. ドキュメントを追加
+    // 1. Add documents
     {
-      let service = WakeruService::init(&config).expect("初期化失敗");
+      let service = WakeruService::init(&config).expect("Initialization failed");
       let docs = vec![
         Document::new("doc-1", "src-1", "Tokyo is the capital")
           .with_metadata("author", json!("alice"))
           .with_tag("category:geo"),
       ];
-      service.index_documents(&docs).expect("インデックス失敗");
+      service.index_documents(&docs).expect("Indexing failed");
     }
 
-    // 2. メタデータが復元されることを確認
+    // 2. Confirm metadata is restored
     {
-      let service = WakeruService::init(&config).expect("初期化失敗");
-      let results = service.search("tokyo", 10).expect("検索失敗");
+      let service = WakeruService::init(&config).expect("Initialization failed");
+      let results = service.search("tokyo", 10).expect("Search failed");
 
       assert_eq!(results.len(), 1);
       assert_eq!(results[0].metadata["author"], json!("alice"));
@@ -527,7 +527,7 @@ mod tests {
     }
   }
 
-  // ─── エラーハンドリングテスト ────────────────────────────────────────────
+  // ─── Error Handling Tests ────────────────────────────────────────────
 
   #[test]
   fn service_invalid_query_returns_error() {
@@ -542,36 +542,36 @@ mod tests {
 
   #[test]
   fn service_duplicate_documents_are_skipped() {
-    let temp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let temp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let config = create_english_only_config(&temp_dir);
 
-    // 1. 同じ ID のドキュメントを2回追加
+    // 1. Add document with same ID twice
     {
-      let service = WakeruService::init(&config).expect("初期化失敗");
+      let service = WakeruService::init(&config).expect("Initialization failed");
       let docs1 = vec![Document::new("doc-1", "src-1", "First content")];
-      service.index_documents(&docs1).expect("インデックス失敗");
+      service.index_documents(&docs1).expect("Indexing failed");
 
       let docs2 = vec![Document::new("doc-1", "src-1", "Second content")];
-      service.index_documents(&docs2).expect("インデックス失敗"); // 重複はスキップされる
+      service.index_documents(&docs2).expect("Indexing failed"); // Duplicates are skipped
     }
 
-    // 2. 最初のコンテンツが保持されていることを確認
+    // 2. Confirm first content is retained
     {
-      let service = WakeruService::init(&config).expect("初期化失敗");
-      let results = service.search("first", 10).expect("検索失敗");
+      let service = WakeruService::init(&config).expect("Initialization failed");
+      let results = service.search("first", 10).expect("Search failed");
 
       assert_eq!(results.len(), 1);
       assert_eq!(results[0].text, "First content");
     }
   }
 
-  // ─── 設定バリデーションテスト ──────────────────────────────────────────────
+  // ─── Config Validation Tests ──────────────────────────────────────────────
 
   #[test]
   fn service_init_validates_config() {
-    let temp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let temp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
 
-    // 無効な設定: languages が空
+    // Invalid config: languages is empty
     let invalid_config = WakeruConfig {
       dictionary: DictionaryConfig {
         preset: DictionaryPreset::Ipadic,
@@ -581,7 +581,7 @@ mod tests {
         data_dir: temp_dir.path().join("index"),
         writer_memory_bytes: 50_000_000,
         batch_commit_size: 1000,
-        languages: vec![], // 無効: 空の言語リスト
+        languages: vec![], // Invalid: Empty language list
         default_language: Language::En,
       },
       search: SearchConfig {

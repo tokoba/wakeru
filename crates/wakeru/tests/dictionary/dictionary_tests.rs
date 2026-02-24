@@ -1,124 +1,123 @@
-//! dictionary 用のテスト
-//! 辞書管理の統合テスト
+//! tests for dictionary
+//! Integration tests for dictionary management
 
 use vibrato_rkyv::dictionary::PresetDictionaryKind;
 use wakeru::dictionary::DictionaryManager;
 use wakeru::errors::DictionaryError;
 
-/// DictionaryManager のコンストラクタが正常に動作することを確認する。
+/// Verify that the constructor of DictionaryManager works correctly.
 #[test]
 fn create_dictionary_manager_with_preset() {
   let result = DictionaryManager::with_preset(PresetDictionaryKind::Ipadic);
 
-  // コンストラクタ自体はネットワーク不要なので成功するはず
+  // The constructor itself should succeed as it does not require network access
   assert!(
     result.is_ok(),
-    "DictionaryManager の構築に失敗: {:?}",
+    "Failed to build DictionaryManager: {:?}",
     result.err()
   );
 }
 
-/// 存在しないパスを指定した場合にエラーが返ることを確認する。
+/// Verify that an error returns when a non-existent path is specified.
 #[test]
 fn from_local_path_with_nonexistent_file() {
   let result = DictionaryManager::from_local_path("/nonexistent/path/to/system.dic");
 
   assert!(result.is_err());
   let err = result.unwrap_err();
-  // DictionaryError::DictionaryNotFound であることを確認
+  // Confirm it is DictionaryError::DictionaryNotFound
   assert!(
     matches!(err, DictionaryError::DictionaryNotFound(_)),
-    "期待されるエラー型ではありません: {:?}",
+    "Unexpected error type: {:?}",
     err
   );
 }
 
-/// プリセット辞書のダウンロード＆ロード テスト。
+/// Preset dictionary download & load test.
 ///
-/// ネットワークアクセスと大容量ファイルの処理が必要なため
-/// `#[ignore]` を付けている。
+/// Added `#[ignore]` because it requires network access and handling large files.
 ///
-/// 実行方法:
+/// How to run:
 /// ```bash
 /// cargo test -- --ignored download_and_load_ipadic
 /// ```
 #[test]
-#[ignore = "辞書ダウンロードは時間がかかるため通常テストから除外"]
+#[ignore = "Excluded from normal tests as dictionary download takes time"]
 fn download_and_load_ipadic() {
   let manager = DictionaryManager::with_preset(PresetDictionaryKind::Ipadic)
-    .expect("DictionaryManager の構築に失敗");
+    .expect("Failed to build DictionaryManager");
 
-  // 辞書をロード（初回はダウンロドが発生する）
+  // Load dictionary (Download occurs on the first time)
   let dict = manager.load();
-  assert!(dict.is_ok(), "辞書のロードに失敗: {:?}", dict.err());
+  assert!(dict.is_ok(), "Failed to load dictionary: {:?}", dict.err());
 
-  // 2回目のロードはキャッシュから取得される
+  // Second load is retrieved from cache
   let dict2 = manager.load();
-  assert!(dict2.is_ok(), "2回目のロードに失敗");
+  assert!(dict2.is_ok(), "Failed to load for the second time");
 }
 
-/// キャッシュ済み辞書のロードテスト。
+/// Test loading cached dictionary.
 ///
-/// 事前に `download_and_load_ipadic` を実行して
-/// 辞書がキャッシュされている場合にのみ有効。
-/// キャッシュが存在しない場合は自動スキップする。
+/// Valid only when `download_and_load_ipadic` has been executed beforehand
+/// and the dictionary is cached.
+/// Skips automatically if cache does not exist.
 #[test]
 fn load_cached_dictionary() {
   let manager = DictionaryManager::with_preset(PresetDictionaryKind::Ipadic)
-    .expect("DictionaryManager の構築に失敗");
+    .expect("Failed to build DictionaryManager");
 
-  // キャッシュが存在するかチェック
+  // Check if cache exists
   let cache_dir = manager.cache_dir();
   let dict_subdir = cache_dir.join(PresetDictionaryKind::Ipadic.name());
 
   if !dict_subdir.exists() {
     eprintln!(
-      "辞書キャッシュが存在しないためスキップ: {}",
+      "Skipping as dictionary cache does not exist: {}",
       dict_subdir.display()
     );
     return;
   }
 
-  // キャッシュからロード
+  // Load from cache
   let dict = manager.load();
   assert!(
     dict.is_ok(),
-    "キャッシュ辞書のロードに失敗: {:?}",
+    "Failed to load cached dictionary: {:?}",
     dict.err()
   );
 }
 
-/// ロードした辞書で基本的な形態素解析ができることを確認する。
+/// Verify that basic morphological analysis is possible with the loaded dictionary.
 ///
-/// 事前に辞書キャッシュが必要。
+/// Requires dictionary cache beforehand.
 #[test]
 fn basic_tokenize_with_cached_dictionary() {
   let manager = DictionaryManager::with_preset(PresetDictionaryKind::Ipadic)
-    .expect("DictionaryManager の構築に失敗");
+    .expect("Failed to build DictionaryManager");
 
   let cache_dir = manager.cache_dir();
   let dict_subdir = cache_dir.join(PresetDictionaryKind::Ipadic.name());
 
   if !dict_subdir.exists() {
-    eprintln!("辞書キャッシュが存在しないためスキップ");
+    eprintln!("Skipping as dictionary cache does not exist");
     return;
   }
 
-  // 辞書ロード
-  let dict = manager.load().expect("辞書のロードに失敗");
+  // Load dictionary
+  let dict = manager.load().expect("Failed to load dictionary");
 
-  // Tokenizer と Worker を生成して形態素解析
-  // from_shared_dictionary を使用して Arc<Dictionary> を直接渡す
+  // Generate Tokenizer and Worker, and perform morphological analysis
+  // Pass Arc<Dictionary> directly using from_shared_dictionary
   let tokenizer = vibrato_rkyv::Tokenizer::from_shared_dictionary(dict);
   let mut worker = tokenizer.new_worker();
 
   worker.reset_sentence("東京は日本の首都です");
   worker.tokenize();
 
-  // トークン数がゼロでないことを確認
-  assert!(worker.num_tokens() > 0, "形態素解析結果が空です");
+  // Confirm token count is not zero
+  assert!(worker.num_tokens() > 0, "Morphological analysis result is empty");
 
-  // 各トークンの表層形と品詞情報を出力（デバッグ用）
+  // Output surface form and part-of-speech info for each token (for debugging)
   for token in worker.token_iter() {
     println!(
       "  surface: {:8} | range_byte: {:?} | feature: {}",

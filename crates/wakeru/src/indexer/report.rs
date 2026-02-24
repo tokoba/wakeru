@@ -1,40 +1,40 @@
-//! ドキュメント追加結果のレポート型定義
+//! Document Addition Report Type Definition
 //!
-//! バッチ追加時の成功・スキップを集計する型を定義します。
+//! Defines types to aggregate success/skip counts during batch addition.
 
 use serde::{Deserialize, Serialize};
 
-/// `add_documents` の集計結果
+/// Aggregation result of `add_documents`
 ///
-/// バッチ追加時の成功・スキップを集計し、
-/// 処理の最後まで正常に完了したことを保証する。
+/// Aggregates success/skip counts during batch addition
+/// and guarantees that the process completed normally until the end.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AddDocumentsReport {
-  /// 入力バッチのドキュメント総数
+  /// Total number of documents in input batch
   pub total: usize,
-  /// 実際にインデックスに追加された件数
+  /// Number of documents actually added to the index
   pub added: usize,
-  /// 重複によりスキップされた件数
+  /// Number of documents skipped due to duplication
   pub skipped_duplicates: usize,
 }
 
 impl AddDocumentsReport {
-  /// 全て追加されたか（skipped == 0）
+  /// Whether all documents were added (skipped == 0)
   pub fn is_all_added(&self) -> bool {
     self.skipped_duplicates == 0
   }
 
-  /// 追加成功を記録
+  /// Record successful addition
   pub fn record_added(&mut self) {
     self.added += 1;
   }
 
-  /// スキップを記録
+  /// Record skip
   pub fn record_skipped(&mut self) {
     self.skipped_duplicates += 1;
   }
 
-  /// 合計件数を記録
+  /// Record total count
   pub fn record_total(&mut self) {
     self.total += 1;
   }

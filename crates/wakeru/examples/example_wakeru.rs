@@ -1,6 +1,6 @@
 //! wakeru crate example (refactored)
 //!
-//! 日本語・英語の多言語インデックス対応版
+//! Multi-language index support version (Japanese/English)
 
 use tantivy::tokenizer::TextAnalyzer;
 use tracing_subscriber::EnvFilter;
@@ -12,44 +12,44 @@ use wakeru::models::{Document, SearchResult};
 use wakeru::searcher::SearchEngine;
 use wakeru::tokenizer::VibratoTokenizer;
 
-/// アプリケーション共通の結果型
+/// Application common result type
 type AppResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-/// 辞書の準備・トークナイザー構築・インデックスの open/create までを行う。
+/// Prepares dictionary, builds tokenizer, and opens/creates index.
 ///
-/// `language` に応じて:
-/// - Language::Ja: Vibrato + 日本語インデックス
-/// - Language::En: SimpleTokenizer + LowerCaser を IndexManager 側で設定
+/// Depending on `language`:
+/// - Language::Ja: Vibrato + Japanese index
+/// - Language::En: SimpleTokenizer + LowerCaser set on IndexManager side
 fn init_index_manager(index_dir: &str, language: Language) -> AppResult<IndexManager> {
   match language {
     Language::Ja => {
-      // 日本語辞書の準備
+      // Prepare Japanese dictionary
       let manager = DictionaryManager::with_preset(PresetDictionaryKind::UnidicCwj)?;
       let dict = manager.load()?;
 
-      // トークナイザーの構築
+      // Build tokenizer
       let tokenizer = VibratoTokenizer::from_shared_dictionary(dict);
 
-      // VibratoTokenizer から TextAnalyzer を作成
+      // Create TextAnalyzer from VibratoTokenizer
       let text_analyzer = TextAnalyzer::from(tokenizer);
 
-      // 日本語インデックス: Language::Ja + Some(text_analyzer)
+      // Japanese index: Language::Ja + Some(text_analyzer)
       let index_manager =
         IndexManager::open_or_create(index_dir, Language::Ja, Some(text_analyzer))?;
 
       Ok(index_manager)
     }
     Language::En => {
-      // 英語インデックス: SimpleTokenizer + LowerCaser は
-      // IndexManager::open_or_create 内で自動登録されるので辞書不要
+      // English index: SimpleTokenizer + LowerCaser is
+      // automatically registered in IndexManager::open_or_create, so no dictionary needed
       let index_manager = IndexManager::open_or_create(index_dir, Language::En, None)?;
       Ok(index_manager)
     }
   }
 }
 
-/// 任意の Document 集合をインデックスに追加する関数。
-/// Vec<Document>, &[Document], &Vec<Document> などを柔軟に受け取れるよう AsRef<[Document]> で受ける。
+/// Function to add arbitrary set of Documents to index.
+/// Receives as AsRef<[Document]> to flexibly accept Vec<Document>, &[Document], &Vec<Document> etc.
 fn add_documents<D>(index_manager: &IndexManager, documents: D) -> AppResult<()>
 where
   D: AsRef<[Document]>,
@@ -57,41 +57,41 @@ where
   let docs = documents.as_ref();
 
   if docs.is_empty() {
-    // 何も入っていなければ何もしないで成功扱い
+    // If empty, do nothing and treat as success
     return Ok(());
   }
 
   let report = index_manager.add_documents(docs)?;
   println!(
-    "追加結果: total={}, added={}, skipped={}",
+    "Addition result: total={}, added={}, skipped={}",
     report.total, report.added, report.skipped_duplicates
   );
 
   Ok(())
 }
 
-/// 任意のクエリ文字列で BM25 検索を行い、結果を返す関数。
-/// SearchEngine は IndexManager の index() / fields() / language() から都度生成し、
-/// ライフタイムをこの関数内に閉じ込めて借用チェーンをシンプルに保つ。
+/// Function to perform BM25 search with arbitrary query string and return results.
+/// SearchEngine is generated from index_manager.index() / fields() / language() each time,
+/// keeping lifetime confined within this function to simplify borrow chain.
 ///
-/// 注: search_tokens_or() を使用して、クエリを言語に応じたトークナイズした上で OR 検索を行います。
-///      日本語では「京都の寺」→「京都」「寺」に分割され、
-///      英語ではスペース区切り + 小文字化（LowerCaser）でトークナイズされます。
+/// Note: Uses search_tokens_or() to tokenize query according to language and then perform OR search.
+///       In Japanese, "京都の寺" is split into "京都" and "寺".
+///       In English, it is tokenized by space separation + lowercasing (LowerCaser).
 fn search(index_manager: &IndexManager, query: &str, limit: usize) -> AppResult<Vec<SearchResult>> {
-  // SearchEngine は IndexManager の index() / fields() / language() から生成
+  // Generate SearchEngine from index_manager's index() / fields() / language()
   let search_engine = SearchEngine::new(
     index_manager.index(),
     *index_manager.fields(),
     index_manager.language(),
   )?;
-  // search_tokens_or() で形態素解析 + OR 検索
+  // Morphological analysis + OR search with search_tokens_or()
   let results = search_engine.search_tokens_or(query, limit)?;
   Ok(results)
 }
 
-/// 検索結果を標準出力に表示する関数。
+/// Function to display search results to standard output.
 fn print_results(query: &str, results: &[SearchResult]) {
-  println!("\n検索結果 (クエリ: \"{}\"):", query);
+  println!("\nSearch results (Query: \"{}\"):", query);
   for result in results {
     println!(
       "  [{:.4}] {} | {} | {:?}",
@@ -101,20 +101,20 @@ fn print_results(query: &str, results: &[SearchResult]) {
 }
 
 fn main() -> AppResult<()> {
-  // tracing_subscriber の初期化
-  // RUST_LOG 環境変数が設定されていればそれを使用
-  // デフォルト: 全体は info、wakeru は debug、tantivy は warn 以上
+  // Initialize tracing_subscriber
+  // Use RUST_LOG environment variable if set
+  // Default: info for global, debug for wakeru, warn or above for tantivy
   let env_filter = EnvFilter::try_from_default_env()
     .unwrap_or_else(|_| EnvFilter::new("info,wakeru=debug,tantivy=warn"));
   tracing_subscriber::fmt().with_env_filter(env_filter).with_target(true).with_level(true).init();
 
-  // 1. 日本語インデックスの初期化
+  // 1. Initialize Japanese index
   let index_manager_ja = init_index_manager("./.index/ja", Language::Ja)?;
 
-  // 2. 英語インデックスの初期化
+  // 2. Initialize English index
   let index_manager_en = init_index_manager("./.index/en", Language::En)?;
 
-  // 3. 日本語ドキュメントを追加
+  // 3. Add Japanese documents
   let documents_ja = vec![
     Document::new("1", "doc-A", "東京タワーは東京の観光名所です").with_tag("category:tourism"),
     Document::new("2", "doc-A", "京都には金閣寺や銀閣寺があります").with_tag("category:tourism"),
@@ -186,7 +186,7 @@ fn main() -> AppResult<()> {
 
   add_documents(&index_manager_ja, &documents_ja)?;
 
-  // 4. 英語ドキュメントを追加
+  // 4. Add English documents
   let documents_en = vec![
     Document::new(
       "en-1",
@@ -234,8 +234,8 @@ fn main() -> AppResult<()> {
 
   add_documents(&index_manager_en, &documents_en)?;
 
-  // 5. 日本語インデックスで検索
-  println!("\n===== 日本語インデックスでの検索 =====");
+  // 5. Search in Japanese index
+  println!("\n===== Search in Japanese Index =====");
   let search_limit = 10;
 
   let query = "東京観光";
@@ -266,10 +266,10 @@ fn main() -> AppResult<()> {
   let results = search(&index_manager_ja, query, search_limit)?;
   print_results(query, &results);
 
-  // 6. 英語インデックスで検索
-  println!("\n===== 英語インデックスでの検索 =====");
+  // 6. Search in English index
+  println!("\n===== Search in English Index =====");
 
-  // 大文字で検索しても LowerCaser により小文字化されて検索される
+  // Document is found even if searched in uppercase because of LowerCaser
   let query = "TOKYO tower temple";
   let results = search(&index_manager_en, query, search_limit)?;
   print_results(query, &results);

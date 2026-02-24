@@ -1,7 +1,7 @@
-//! searcher モジュール
+//! searcher module
 
 pub mod bm25_searcher;
 mod tokenization;
 
-/// 再エクスポート
+/// Re-exports
 pub use bm25_searcher::SearchEngine;

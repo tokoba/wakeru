@@ -8,23 +8,23 @@ use vibrato_rkyv::dictionary::PresetDictionaryKind;
 
 use crate::errors::ConfigError;
 
-/// サポートする言語種別。
+/// Supported language types.
 ///
-/// 多言語インデックス方式（B案）では、言語ごとに独立したインデックスを作成する。
-/// 各言語に適したトークナイザーが自動的に選択される。
+/// In the multi-language index strategy (Plan B), an independent index is created for each language.
+/// A tokenizer suitable for each language is automatically selected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Language {
-  /// 日本語（形態素解析: VibratoTokenizer）
+  /// Japanese (Morphological Analysis: VibratoTokenizer)
   Ja,
-  /// 英語（スペース区切り: SimpleTokenizer + LowerCaser）
+  /// English (Space separated: SimpleTokenizer + LowerCaser)
   En,
 }
 
 impl Language {
-  /// 言語コードを返す（インデックスディレクトリ名に使用）。
+  /// Returns the language code (used for index directory names).
   ///
-  /// # 例
+  /// # Examples
   /// - `Language::Ja` → `"ja"`
   /// - `Language::En` → `"en"`
   pub fn code(&self) -> &'static str {
@@ -34,10 +34,10 @@ impl Language {
     }
   }
 
-  /// テキストフィールドで使用するトークナイザー名を返す。
+  /// Returns the tokenizer name to be used for text fields.
   ///
-  /// - 日本語: `"lang_ja"`（VibratoTokenizer）
-  /// - 英語: `"lang_en"`（SimpleTokenizer + LowerCaser）
+  /// - Japanese: `"lang_ja"` (VibratoTokenizer)
+  /// - English: `"lang_en"` (SimpleTokenizer + LowerCaser)
   pub fn text_tokenizer_name(&self) -> &'static str {
     match self {
       Language::Ja => "lang_ja",
@@ -45,10 +45,10 @@ impl Language {
     }
   }
 
-  /// N-gram トークナイザー名を返す（日本語のみ）。
+  /// Returns the N-gram tokenizer name (Japanese only).
   ///
-  /// - 日本語: `Some("ja_ngram")`（1文字検索用）
-  /// - 英語: `None`（N-gram フィールドなし）
+  /// - Japanese: `Some("ja_ngram")` (For single character search)
+  /// - English: `None` (No N-gram field)
   pub fn ngram_tokenizer_name(&self) -> Option<&'static str> {
     match self {
       Language::Ja => Some("ja_ngram"),
@@ -63,118 +63,113 @@ impl std::fmt::Display for Language {
   }
 }
 
-/// wakeruのトップレベル設定。
+/// Top-level configuration for wakeru.
 #[derive(Debug, Clone, Deserialize)]
 pub struct WakeruConfig {
-  /// [dictionary] セクション
+  /// [dictionary] section
   pub dictionary: DictionaryConfig,
-  /// [index] セクション
+  /// [index] section
   pub index: IndexConfig,
-  /// [search] セクション
+  /// [search] section
   pub search: SearchConfig,
-  /// [logging] セクション
+  /// [logging] section
   pub logging: LoggingConfig,
 }
 
-/// [dictionary] セクション設定。
+/// [dictionary] section configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct DictionaryConfig {
-  /// プリセット辞書種別: "ipadic" | "unidic-cwj" | "unidic-csj"
+  /// Preset dictionary type: "ipadic" | "unidic-cwj" | "unidic-csj"
   pub preset: DictionaryPreset,
-  /// 辞書キャッシュディレクトリ。
+  /// Dictionary cache directory.
   ///
-  /// TOML で省略された場合は `None` となり、
-  /// 実際のデフォルトは `DictionaryManager` 側で決定する想定。
+  /// If omitted in TOML, it becomes `None`, and the actual default is assumed to be determined by `DictionaryManager`.
   #[serde(default)]
   pub cache_dir: Option<PathBuf>,
 }
 
-/// プリセット辞書種別。
+/// Preset dictionary type.
 ///
-/// ## 設計背景
+/// ## Design Background
 ///
-/// 本プロジェクトでは、形態素解析エンジン [vibrato-rkyv] が提供する
-/// `PresetDictionaryKind` 型を使用して辞書を指定します。しかし、この外部型は
-/// `serde::Deserialize` トレイトを実装していないため、TOML 設定ファイルから
-/// 直接デシリアライズすることができません。
+/// This project uses the `PresetDictionaryKind` type provided by the morphological analysis engine [vibrato-rkyv]
+/// to specify dictionaries. However, since this external type does not implement the `serde::Deserialize` trait,
+/// it cannot be directly deserialized from a TOML configuration file.
 ///
-/// ## この型が存在する理由
+/// ## Reason for this type's existence
 ///
-/// `DictionaryPreset` は TOML 設定ファイルからの読み込みを実現するために
-/// 利便性向上を目的として新規定義された enum です。
-/// `#[derive(Deserialize)]` を持つため、設定ファイルの `[dictionary].preset`
-/// フィールドとして直接使用できます。
+/// `DictionaryPreset` is a newly defined enum for the purpose of improving convenience to realize loading from TOML configuration files.
+/// Since it has `#[derive(Deserialize)]`, it can be used directly as the `[dictionary].preset` field in the configuration file.
 ///
-/// ## PresetDictionaryKind との統合ができない理由
+/// ## Reason why integration with PresetDictionaryKind is not possible
 ///
-/// `PresetDictionaryKind` は外部クレート (vibrato-rkyv) の型であるため、
-/// 本プロジェクト側で `Deserialize` 実装を追加することができません
-///（Rust の孤児ルール / orphan rule により禁止されています）。
+/// Since `PresetDictionaryKind` is a type of an external crate (vibrato-rkyv),
+/// we cannot add a `Deserialize` implementation on this project's side
+/// (forbidden by Rust's orphan rule).
 ///
-/// そのため、設定ファイル用の型として `DictionaryPreset` を定義し、
-/// 内部処理で `PresetDictionaryKind` に変換する設計を採用しています。
+/// Therefore, we adopt a design where `DictionaryPreset` is defined as a type for configuration files,
+/// and it is converted to `PresetDictionaryKind` in internal processing.
 ///
-/// ## 変換方法
+/// ## Conversion method
 ///
-/// `From<DictionaryPreset> for PresetDictionaryKind` トレイト実装により、
-/// `.into()` メソッドで相互運用可能です。
+/// Interoperability is possible with the `.into()` method via the `From<DictionaryPreset> for PresetDictionaryKind` trait implementation.
 ///
 /// [vibrato-rkyv]: https://crates.io/crates/vibrato-rkyv
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DictionaryPreset {
-  /// IpaDic: もっとも小型
+  /// IpaDic: The smallest
   Ipadic,
-  /// Unidic の書き言葉用
+  /// Unidic for written language
   UnidicCwj,
-  /// Unidic の話し言葉用
+  /// Unidic for spoken language
   UnidicCsj,
 }
 
-/// [index] セクション設定。
+/// [index] section configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct IndexConfig {
-  /// インデックス保存ディレクトリ（例: "/opt/wakeru/data/index"）
+  /// Index storage directory (e.g., "/opt/wakeru/data/index")
   pub data_dir: PathBuf,
-  /// IndexWriter のメモリバッファサイズ（バイト）
+  /// Memory buffer size for IndexWriter (bytes)
   pub writer_memory_bytes: usize,
-  /// バッチコミットサイズ
+  /// Batch commit size
   pub batch_commit_size: usize,
-  /// サポートする言語一覧（例: ["ja", "en"]）
+  /// List of supported languages (e.g., ["ja", "en"])
   #[serde(default = "default_languages")]
   pub languages: Vec<Language>,
-  /// デフォルト言語（`languages` に含まれる必要がある）
+  /// Default language (must be included in `languages`)
   #[serde(default = "default_language")]
   pub default_language: Language,
 }
 
-/// デフォルトの言語一覧（日本語のみ）
+/// Default language list (Japanese only)
 fn default_languages() -> Vec<Language> {
   vec![Language::Ja]
 }
 
-/// デフォルト言語（日本語）
+/// Default language (Japanese)
 fn default_language() -> Language {
   Language::Ja
 }
 
-/// [search] セクション設定。
+/// [search] section configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SearchConfig {
-  /// デフォルトの検索結果上限
+  /// Default search result limit
   pub default_limit: usize,
-  /// 最大検索結果上限
+  /// Maximum search result limit
   pub max_limit: usize,
 }
 
-/// [logging] セクション設定。
+/// [logging] section configuration.
 #[derive(Debug, Clone, Deserialize)]
 pub struct LoggingConfig {
-  /// ログレベル: "trace" | "debug" | "info" | "warn" | "error"
+  /// Log level: "trace" | "debug" | "info" | "warn" | "error"
   pub level: LogLevel,
 }
 
-/// ログレベル。
+/// Log level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
@@ -194,40 +189,40 @@ pub enum LogLevel {
   Error,
 }
 
-// ===== アクセサメソッド =====
+// ===== Accessor Methods =====
 
 impl WakeruConfig {
-  /// DictionaryManager に渡すためのプリセット辞書種別を返す。
+  /// Returns the preset dictionary type to pass to DictionaryManager.
   ///
-  /// 設計書中の:
+  /// Corresponds to:
   /// ```rust,ignore
   /// let dictionary_manager = DictionaryManager::with_preset(
   ///     config.dictionary_preset(),
   /// )?;
   /// ```
-  /// に対応。
+  /// in the design document.
   pub fn dictionary_preset(&self) -> PresetDictionaryKind {
     self.dictionary.preset.into()
   }
 
-  /// 設定された辞書キャッシュディレクトリを返す。
+  /// Returns the configured dictionary cache directory.
   ///
-  /// TOML で未指定の場合は `None`。
-  /// 実際のパス決定は DictionaryManager 側で行う想定。
+  /// `None` if unspecified in TOML.
+  /// The actual path determination is assumed to be done on the DictionaryManager side.
   pub fn dictionary_cache_dir(&self) -> Option<&Path> {
     self.dictionary.cache_dir.as_deref()
   }
 
-  /// インデックスのベースディレクトリを返す。
+  /// Returns the base directory of the index.
   ///
-  /// 例: "/opt/wakeru/data/index"
+  /// e.g., "/opt/wakeru/data/index"
   pub fn index_base_dir(&self) -> &Path {
     &self.index.data_dir
   }
 
-  /// 指定言語のインデックスディレクトリを返す。
+  /// Returns the index directory for the specified language.
   ///
-  /// ディレクトリ構成:
+  /// Directory structure:
   /// ```text
   /// data/index/
   ///   ├── ja/
@@ -238,7 +233,7 @@ impl WakeruConfig {
   ///       └── ...
   /// ```
   ///
-  /// # 例
+  /// # Examples
   /// ```ignore
   /// let ja_path = config.index_path_for_language(Language::Ja);
   /// // → "/opt/wakeru/data/index/ja"
@@ -247,14 +242,14 @@ impl WakeruConfig {
     self.index.data_dir.join(language.code())
   }
 
-  /// デフォルトコレクションのインデックスディレクトリを返す。
+  /// Returns the index directory for the default collection.
   ///
-  /// 設計書のディレクトリ構成:
+  /// Based on the design document's directory structure:
   ///   data/index/
   ///     ├── default/
   ///     └── {collection_id}/
   ///
-  /// と、`WakeruService::init` 中の:
+  /// and `WakeruService::init`:
   /// ```rust,ignore
   /// let index_manager = if config.index_path().exists() {
   ///     IndexManager::open(config.index_path(), tokenizer)?
@@ -262,52 +257,52 @@ impl WakeruConfig {
   ///     IndexManager::create(config.index_path(), tokenizer)?
   /// };
   /// ```
-  /// を踏まえ、`<data_dir>/default` を返す。
+  /// Returns `<data_dir>/default`.
   #[deprecated(note = "Use index_path_for_language() for multi-language support")]
   pub fn index_path(&self) -> PathBuf {
     self.index.data_dir.join("default")
   }
 
-  /// IndexWriter のメモリバッファサイズ（バイト）を返す。
+  /// Returns the memory buffer size (bytes) for IndexWriter.
   pub fn writer_memory_bytes(&self) -> usize {
     self.index.writer_memory_bytes
   }
 
-  /// バッチコミットサイズを返す。
+  /// Returns the batch commit size.
   pub fn batch_commit_size(&self) -> usize {
     self.index.batch_commit_size
   }
 
-  /// サポートする言語一覧を返す。
+  /// Returns the list of supported languages.
   pub fn supported_languages(&self) -> &[Language] {
     &self.index.languages
   }
 
-  /// デフォルト言語を返す。
+  /// Returns the default language.
   pub fn default_language(&self) -> Language {
     self.index.default_language
   }
 
-  /// 設定の妥当性を検証する。
+  /// Validates the configuration.
   ///
-  /// # 検証項目
-  /// - `languages` が空でない
-  /// - `default_language` が `languages` に含まれている
+  /// # Validation Items
+  /// - `languages` is not empty
+  /// - `default_language` is included in `languages`
   /// - `search.default_limit` >= 1
   /// - `search.max_limit` >= `search.default_limit`
-  /// - `index.writer_memory_bytes` が許容範囲内（1MB〜1GB）
+  /// - `index.writer_memory_bytes` is within allowable range (1MB - 1GB)
   /// - `index.batch_commit_size` >= 1
-  /// - `dictionary.cache_dir` が存在するディレクトリ または 作成可能
+  /// - `dictionary.cache_dir` exists or can be created
   ///
-  /// # エラー
-  /// 検証に失敗した場合、対応する `ConfigError` を返す。
+  /// # Errors
+  /// Returns the corresponding `ConfigError` if validation fails.
   pub fn validate(&self) -> Result<(), ConfigError> {
-    // languages が空でない
+    // languages is not empty
     if self.index.languages.is_empty() {
       return Err(ConfigError::EmptyLanguages);
     }
 
-    // default_language が languages に含まれている
+    // default_language is included in languages
     if !self.index.languages.contains(&self.index.default_language) {
       return Err(ConfigError::DefaultLanguageNotInLanguages {
         default_language: self.index.default_language,
@@ -329,7 +324,7 @@ impl WakeruConfig {
       });
     }
 
-    // index.writer_memory_bytes が許容範囲内（1MB〜1GB）
+    // index.writer_memory_bytes is within allowable range (1MB - 1GB)
     const MIN_WRITER_MEMORY: u64 = 1_000_000; // 1MB
     const MAX_WRITER_MEMORY: u64 = 1_000_000_000; // 1GB
     let writer_memory = self.index.writer_memory_bytes as u64;
@@ -348,17 +343,17 @@ impl WakeruConfig {
       });
     }
 
-    // dictionary.cache_dir が存在するディレクトリ または 作成可能
+    // dictionary.cache_dir exists or can be created
     if let Some(cache_dir) = &self.dictionary.cache_dir {
       if cache_dir.exists() {
-        // 存在する場合、ディレクトリであることを確認
+        // If it exists, check that it is a directory
         if !cache_dir.is_dir() {
           return Err(ConfigError::InvalidDictionaryCacheDir {
             path: cache_dir.clone(),
           });
         }
       } else {
-        // 存在しない場合、作成可能か確認
+        // If it does not exist, check if it can be created
         if let Err(e) = std::fs::create_dir_all(cache_dir) {
           return Err(ConfigError::DictionaryCacheDirCreationFailed {
             path: cache_dir.clone(),
@@ -371,28 +366,27 @@ impl WakeruConfig {
     Ok(())
   }
 
-  /// デフォルトの検索結果上限を返す。
+  /// Returns the default search result limit.
   pub fn default_search_limit(&self) -> usize {
     self.search.default_limit
   }
 
-  /// 最大検索結果上限を返す。
+  /// Returns the maximum search result limit.
   pub fn max_search_limit(&self) -> usize {
     self.search.max_limit
   }
 
-  /// ログレベルを返す。
+  /// Returns the log level.
   pub fn log_level(&self) -> LogLevel {
     self.logging.level
   }
 }
 
-// ===== ライブラリ型を本クレートで使用可能な型(一部trait付与版)に変換 =====
+// ===== Convert library types to types usable in this crate (with some traits added) =====
 //
-// DictionaryPreset（設定ファイル用）→ PresetDictionaryKind（vibrato-rkyv 用）
-// の変換を実装します。
+// Implements conversion from DictionaryPreset (for configuration file) -> PresetDictionaryKind (for vibrato-rkyv).
 //
-// この変換が必要な理由は `DictionaryPreset` のドキュメントコメントを参照してください。
+// See `DictionaryPreset` doc comments for why this conversion is necessary.
 
 impl From<DictionaryPreset> for PresetDictionaryKind {
   fn from(preset: DictionaryPreset) -> Self {
@@ -405,7 +399,7 @@ impl From<DictionaryPreset> for PresetDictionaryKind {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// テストモジュール
+// Test Module
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -414,9 +408,9 @@ mod tests {
   use std::fs;
   use tempfile::TempDir;
 
-  // ─── テスト用ヘルパー ─────────────────────────────────────────────────────
+  // ─── Test Helpers ─────────────────────────────────────────────────────
 
-  /// 正常な設定のベースを作成（テストごとに一時ディレクトリを使用）
+  /// Creates a base valid configuration (uses a temporary directory for each test)
   fn create_valid_config(temp_dir: &TempDir) -> WakeruConfig {
     WakeruConfig {
       dictionary: DictionaryConfig {
@@ -440,7 +434,7 @@ mod tests {
     }
   }
 
-  // ─── Language のテスト ────────────────────────────────────────────────────
+  // ─── Language Tests ────────────────────────────────────────────────────
 
   #[test]
   fn language_code_returns_correct_value() {
@@ -466,7 +460,7 @@ mod tests {
     assert_eq!(format!("{}", Language::En), "en");
   }
 
-  // ─── validate() 正常系のテスト ────────────────────────────────────────────
+  // ─── validate() Normal Case Tests ────────────────────────────────────────────
 
   #[test]
   fn validate_accepts_valid_config() {
@@ -529,7 +523,7 @@ mod tests {
     assert!(result.is_ok());
   }
 
-  // ─── validate() languages 異常系 ───────────────────────────────────────────
+  // ─── validate() languages Abnormal Cases ───────────────────────────────────────────
 
   #[test]
   fn validate_rejects_empty_languages() {
@@ -557,7 +551,7 @@ mod tests {
     }
   }
 
-  // ─── validate() search 異常系 ──────────────────────────────────────────────
+  // ─── validate() search Abnormal Cases ──────────────────────────────────────────────
 
   #[test]
   fn validate_rejects_default_limit_zero() {
@@ -594,7 +588,7 @@ mod tests {
     }
   }
 
-  // ─── validate() index 異常系 ───────────────────────────────────────────────
+  // ─── validate() index Abnormal Cases ───────────────────────────────────────────────
 
   #[test]
   fn validate_rejects_writer_memory_too_small() {
@@ -643,7 +637,7 @@ mod tests {
     }
   }
 
-  // ─── validate() dictionary.cache_dir テスト ───────────────────────────────
+  // ─── validate() dictionary.cache_dir Tests ───────────────────────────────
 
   #[test]
   fn validate_accepts_none_cache_dir() {
@@ -673,7 +667,7 @@ mod tests {
     let temp_dir = TempDir::new().unwrap();
     let cache_dir = temp_dir.path().join("new-cache-dir");
 
-    // 存在しないことを確認
+    // Ensure it doesn't exist
     assert!(!cache_dir.exists());
 
     let mut config = create_valid_config(&temp_dir);
@@ -682,7 +676,7 @@ mod tests {
     let result = config.validate();
     assert!(result.is_ok());
 
-    // ディレクトリが作成されたことを確認
+    // Check that directory was created
     assert!(cache_dir.exists() && cache_dir.is_dir());
   }
 
@@ -707,11 +701,11 @@ mod tests {
   #[test]
   fn validate_rejects_cache_dir_creation_fails() {
     let temp_dir = TempDir::new().unwrap();
-    // 親をファイルにする
+    // make parent a file
     let parent_file = temp_dir.path().join("parent_file");
     fs::write(&parent_file, b"dummy").unwrap();
 
-    // 親がファイルの下にディレクトリを作ろうとすると失敗する
+    // trying to create a dir under a file should fail
     let invalid_cache_dir = parent_file.join("child_dir");
 
     let mut config = create_valid_config(&temp_dir);
@@ -726,17 +720,17 @@ mod tests {
     }
   }
 
-  // ─── エラー優先順位のテスト ────────────────────────────────────────────────
+  // ─── Error Priority Tests ────────────────────────────────────────────────
 
   #[test]
   fn validate_reports_empty_languages_first() {
     let temp_dir = TempDir::new().unwrap();
     let mut config = create_valid_config(&temp_dir);
-    config.index.languages.clear(); // 最初のエラー
-    config.search.default_limit = 0; // 2番目のエラー候補
+    config.index.languages.clear(); // First error
+    config.search.default_limit = 0; // Second error candidate
 
     let err = config.validate().unwrap_err();
-    // EmptyLanguages が最初に報告される
+    // EmptyLanguages reported first
     assert!(matches!(err, ConfigError::EmptyLanguages));
   }
 
@@ -745,8 +739,8 @@ mod tests {
     let temp_dir = TempDir::new().unwrap();
     let mut config = create_valid_config(&temp_dir);
     config.index.languages = vec![Language::En];
-    config.index.default_language = Language::Ja; // 最初のエラー
-    config.search.default_limit = 0; // 2番目のエラー候補
+    config.index.default_language = Language::Ja; // First error
+    config.search.default_limit = 0; // Second error candidate
 
     let err = config.validate().unwrap_err();
     assert!(matches!(
@@ -755,7 +749,7 @@ mod tests {
     ));
   }
 
-  // ─── アクセサメソッドのテスト ───────────────────────────────────────────────
+  // ─── Accessor Method Tests ───────────────────────────────────────────────
 
   #[test]
   fn index_path_for_language_returns_correct_path() {
@@ -835,7 +829,7 @@ mod tests {
     assert_eq!(config.log_level(), LogLevel::Info);
   }
 
-  // ─── DictionaryPreset のテスト ─────────────────────────────────────────────
+  // ─── DictionaryPreset Tests ─────────────────────────────────────────────
 
   #[test]
   fn dictionary_preset_converts_to_preset_kind() {
@@ -853,21 +847,21 @@ mod tests {
     );
   }
 
-  // ─── 複数異常値の組み合わせテスト ──────────────────────────────────────────
+  // ─── Multiple Error Combination Tests ──────────────────────────────────────────
 
   #[test]
   fn validate_with_multiple_errors_reports_first() {
     let temp_dir = TempDir::new().unwrap();
     let mut config = create_valid_config(&temp_dir);
 
-    // 複数のエラー条件を設定
+    // Set multiple error conditions
     config.index.languages.clear(); // EmptyLanguages
     config.search.default_limit = 0; // InvalidSearchDefaultLimit
     config.search.max_limit = 0; // InvalidSearchMaxLimit
     config.index.writer_memory_bytes = 0; // InvalidWriterMemoryBytes
 
     let err = config.validate().unwrap_err();
-    // 最初のチェックでエラーになる
+    // Fails at the first check
     assert!(matches!(err, ConfigError::EmptyLanguages));
   }
 }

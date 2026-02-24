@@ -1,6 +1,6 @@
-//! クエリトークナイゼーションモジュール
+//! Query Tokenization Module
 //!
-//! 検索クエリのトークナイズ処理を提供します。
+//! Provides tokenization processing for search queries.
 
 use std::collections::HashSet;
 
@@ -8,37 +8,37 @@ use tantivy::Term;
 use tantivy::schema::Field;
 use tantivy::tokenizer::{TextAnalyzer, TokenStream, Tokenizer};
 
-/// クエリ文字列のトークナイズ結果
+/// Tokenization result of query string
 ///
-/// # フィールド
-/// - `terms`: Tantivy の検索用 Term ベクタ（OR クエリ構築用）
-/// - `query_tokens`: ログ出力用のトークン文字列ベクタ
+/// # Fields
+/// - `terms`: Term vector for Tantivy search (for OR query construction)
+/// - `query_tokens`: Token string vector for log output
 #[derive(Debug, Clone)]
 pub(crate) struct TokenizationResult {
-  /// ユニークな Term のベクタ（クエリ構築用）
+  /// Vector of unique Terms (for query construction)
   pub(crate) terms: Vec<Term>,
-  /// ユニークなトークン文字列のベクタ（ログ出力用）
+  /// Vector of unique token strings (for log output)
   pub(crate) query_tokens: Vec<String>,
 }
 
-/// 与えられた Tokenizer を用いてクエリ文字列をトークナイズする純粋関数（ジェネリクス版）
+/// Pure function to tokenize query string using the given Tokenizer (Generic version)
 ///
-/// # 処理内容
-/// - 空文字列トークンをスキップ
-/// - 重複トークンを除外（最初の出現のみ採用、HashSet 使用）
-/// - Term への変換
+/// # Process
+/// - Skip empty string tokens
+/// - Exclude duplicate tokens (only first occurrence is adopted, using HashSet)
+/// - Convert to Term
 ///
-/// # ジェネリクス
-/// tantivy 0.25.0 の `Tokenizer` トレイトは `Self: Sized` を要求しているため
-/// `&dyn Tokenizer` は使用できません。代わりにジェネリクス `<T: Tokenizer>` を使用します。
+/// # Generics
+/// Since `Tokenizer` trait in tantivy 0.25.0 requires `Self: Sized`,
+/// `&dyn Tokenizer` cannot be used. Use generics `<T: Tokenizer>` instead.
 ///
-/// # 引数
-/// - `tokenizer`: トークナイザー（`T: Tokenizer` ジェネリクス）
-/// - `field`: Term 作成対象のフィールド
-/// - `query_str`: トークナイズ対象のクエリ文字列
+/// # Arguments
+/// - `tokenizer`: Tokenizer (`T: Tokenizer` generics)
+/// - `field`: Field to create Term for
+/// - `query_str`: Query string to tokenize
 ///
-/// # 戻り値
-/// ユニークな Term とトークン文字列を含む `TokenizationResult`
+/// # Returns
+/// `TokenizationResult` containing unique Terms and token strings
 #[allow(dead_code)]
 pub(crate) fn tokenize_with_tokenizer<T>(
   tokenizer: &mut T,
@@ -52,18 +52,18 @@ where
   tokenize_from_stream(&mut token_stream, field)
 }
 
-/// TextAnalyzer 用のトークナイズ関数
+/// Tokenization function for TextAnalyzer
 ///
-/// tantivy 0.25.0 では `TextAnalyzer` が `Tokenizer` トレイトを実装していないため、
-/// 専用の関数を用意しています。
+/// In tantivy 0.25.0, `TextAnalyzer` does not implement `Tokenizer` trait,
+/// so a dedicated function is provided.
 ///
-/// # 引数
-/// - `analyzer`: TextAnalyzer（tantivy から取得したもの）
-/// - `field`: Term 作成対象のフィールド
-/// - `query_str`: トークナイズ対象のクエリ文字列
+/// # Arguments
+/// - `analyzer`: TextAnalyzer (obtained from tantivy)
+/// - `field`: Field to create Term for
+/// - `query_str`: Query string to tokenize
 ///
-/// # 戻り値
-/// ユニークな Term とトークン文字列を含む `TokenizationResult`
+/// # Returns
+/// `TokenizationResult` containing unique Terms and token strings
 pub(crate) fn tokenize_with_text_analyzer(
   analyzer: &mut TextAnalyzer,
   field: Field,
@@ -73,7 +73,7 @@ pub(crate) fn tokenize_with_text_analyzer(
   tokenize_from_stream(&mut token_stream, field)
 }
 
-/// トークンストリームから Term を抽出する共通処理
+/// Common process to extract Terms from token stream
 fn tokenize_from_stream<T: TokenStream + ?Sized>(
   token_stream: &mut T,
   field: Field,
@@ -85,19 +85,19 @@ fn tokenize_from_stream<T: TokenStream + ?Sized>(
   while token_stream.advance() {
     let token = token_stream.token();
 
-    // 空トークンはスキップ
+    // Skip empty tokens
     if token.text.is_empty() {
       continue;
     }
 
-    // 重複トークンはスキップ（最初の出現のみ採用）
+    // Skip duplicate tokens (adopt only first occurrence)
     if !seen.insert(token.text.clone()) {
       continue;
     }
 
     query_tokens.push(token.text.clone());
 
-    // Tantivy の Term に変換
+    // Convert to Tantivy Term
     let term = Term::from_field_text(field, &token.text);
     terms.push(term);
   }
@@ -114,10 +114,10 @@ mod tests {
   use tantivy::schema::{Schema, TEXT};
   use tantivy::tokenizer::{SimpleTokenizer, Token, Tokenizer};
 
-  /// 重複トークンが除外されることのテスト
+  /// Test that duplicate tokens are excluded
   #[test]
   fn tokenize_with_tokenizer_deduplicates_tokens() {
-    // Field を用意
+    // Prepare Field
     let mut schema_builder = Schema::builder();
     let text_field = schema_builder.add_text_field("text", TEXT);
     let _schema = schema_builder.build();
@@ -127,7 +127,7 @@ mod tests {
     let input = "rust rust search rust";
     let result = tokenize_with_tokenizer(&mut tokenizer, text_field, input);
 
-    // 最初の出現順を保ったまま重複除去されていること
+    // Duplicates are removed while keeping the first occurrence order
     assert_eq!(
       result.query_tokens,
       vec!["rust".to_string(), "search".to_string()]
@@ -135,10 +135,10 @@ mod tests {
     assert_eq!(result.terms.len(), result.query_tokens.len());
   }
 
-  /// 空トークンがスキップされ、かつ重複が除外されることのテスト
+  /// Test that empty tokens are skipped and duplicates are excluded
   ///
-  /// SimpleTokenizer では空トークンを生成しないため、
-  /// テスト用の Tokenizer を自前で実装します。
+  /// Since SimpleTokenizer does not generate empty tokens,
+  /// implement Tokenizer for testing manually.
   #[derive(Clone)]
   struct TestTokenizer;
 
@@ -190,12 +190,12 @@ mod tests {
     }
 
     fn token(&self) -> &Token {
-      // advance 後にのみ呼ばれる前提
+      // Assumed to be called only after advance
       &self.tokens[self.index - 1]
     }
 
     fn token_mut(&mut self) -> &mut Token {
-      // advance 後にのみ呼ばれる前提
+      // Assumed to be called only after advance
       &mut self.tokens[self.index - 1]
     }
   }
@@ -210,7 +210,7 @@ mod tests {
 
     let result = tokenize_with_tokenizer(&mut tokenizer, text_field, "ignored");
 
-    // 空文字は含まれず、重複も取り除かれている
+    // Empty strings are not included, and duplicates are removed
     assert_eq!(
       result.query_tokens,
       vec!["rust".to_string(), "search".to_string()]

@@ -1,32 +1,32 @@
-//! wakeru 形態素解析ライブラリー
+//! wakeru Morphological Analysis Library
 //!
-//! vibrato-rkyv を用いた日本語等の形態素解析を行う
+//! Performs morphological analysis for Japanese and other languages using vibrato-rkyv.
 
-/// 設定モジュール - WakeruConfig, Language等の設定構造体を定義
+/// Configuration module - Defines configuration structures such as WakeruConfig and Language
 pub mod config;
 
-/// 辞書モジュール - 形態素解析用辞書の管理・ロード機能を提供
+/// Dictionary module - Provides management and loading functionality for morphological analysis dictionaries
 pub mod dictionary;
 
-/// エラーモジュール - WakeruError, WakeruResult等のエラー型を定義
+/// Error module - Defines error types such as WakeruError and WakeruResult
 pub mod errors;
 
-/// インデックスモジュール - Tantivyによる全文検索インデックスの構築・管理
+/// Indexer module - Construction and management of full-text search index using Tantivy
 pub mod indexer;
 
-/// データモデルモジュール - Document, SearchResult等のデータ構造を定義
+/// Data model module - Defines data structures such as Document and SearchResult
 pub mod models;
 
-/// 検索モジュール - BM25アルゴリズムによる全文検索機能を提供
+/// Search module - Provides full-text search functionality using the BM25 algorithm
 pub mod searcher;
 
-/// サービスモジュール - WakeruService等の上位レベルAPIを提供
+/// Service module - Provides high-level APIs such as WakeruService
 pub mod service;
 
-/// トークナイザーモジュール - vibrato-rkyvを用いた形態素解析トークナイザー
+/// Tokenizer module - Morphological analysis tokenizer using vibrato-rkyv
 pub mod tokenizer;
 
-/// 再エクスポート
+/// Re-exports
 pub use config::{Language, WakeruConfig};
 pub use errors::{WakeruError, WakeruResult};
 pub use service::WakeruService;

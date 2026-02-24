@@ -1,18 +1,18 @@
-//! 環境変数からの設定読み込み
+//! Config loading from environment variables
 
 use std::str::FromStr;
 
 use super::constants::{DEFAULT_BIND_ADDR, DEFAULT_PRESET_DICT};
 use crate::errors::ApiError;
 
-/// 辞書プリセットの種類
+/// Dictionary Preset Type
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Preset {
-  /// IPAdic 辞書
+  /// IPAdic dictionary
   Ipadic,
-  /// UniDic (現代日本語書き言葉コーパス)
+  /// UniDic (Corpus of Contemporary Written Japanese)
   UnidicCwj,
-  /// UniDic (現代日本語話し言葉コーパス)
+  /// UniDic (Corpus of Spontaneous Japanese)
   UnidicCsj,
 }
 
@@ -25,7 +25,7 @@ impl FromStr for Preset {
       "unidic-cwj" => Ok(Self::UnidicCwj),
       "unidic-csj" => Ok(Self::UnidicCsj),
       _ => Err(format!(
-        "不明なプリセット: {}。有効な値: ipadic, unidic-cwj, unidic-csj",
+        "Unknown preset: {}. Valid values: ipadic, unidic-cwj, unidic-csj",
         s
       )),
     }
@@ -34,20 +34,20 @@ impl FromStr for Preset {
 
 impl Preset {}
 
-/// API サーバーの設定
+/// API Server Configuration
 #[derive(Debug, Clone)]
 pub struct Config {
-  /// バインドアドレス (例: "127.0.0.1:5530")
+  /// Bind address (e.g. "127.0.0.1:5530")
   pub bind_addr: String,
-  /// 使用する辞書プリセット
+  /// Dictionary preset to use
   pub preset: Preset,
 }
 
 impl Config {
-  /// 環境変数から設定を読み込む
+  /// Loads configuration from environment variables
   ///
   /// # Errors
-  /// 環境変数の値が無効な場合にエラーを返す
+  /// Returns an error if environment variable values are invalid
   pub fn from_env() -> crate::errors::Result<Self> {
     let bind_addr =
       std::env::var("WAKERU_API_BASE_URL").unwrap_or_else(|_| DEFAULT_BIND_ADDR.to_string());
@@ -89,12 +89,12 @@ mod tests {
 
   #[test]
   fn config_from_env_defaults() {
-    // 環境変数が設定されていない場合のデフォルト値を確認
-    // 注: remove_var は Rust 2024 で unsafe になったため使用しない
-    // このテストは環境変数が設定されていない前提で実行される
+    // Verify default values when environment variables are not set
+    // Note: remove_var became unsafe in Rust 2024, so not used here
+    // This test assumes environment variables are not set
 
     let config = Config::from_env().unwrap();
-    // 環境変数が設定されている場合はその値、そうでなければデフォルト値
+    // If environment variable is set, it's that value, otherwise default value
     assert!(!config.bind_addr.is_empty());
   }
 }

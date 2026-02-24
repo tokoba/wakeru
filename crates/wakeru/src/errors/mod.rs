@@ -1,7 +1,7 @@
-//! errors モジュール
+//! errors module
 pub mod error_definition;
 
-/// 主要なエラー型を再エクスポート
+/// Re-export major error types
 pub use error_definition::{
   ConfigError, DictionaryError, IndexerError, SearcherError, TokenizerError, WakeruError,
   WakeruResult,

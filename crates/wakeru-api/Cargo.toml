@@ -10,27 +10,27 @@ rust-version.workspace = true
 publish = true
 
 [dependencies]
-# 自社クレート
+# Internal crate
 wakeru = { version = "0.1.1" }
 
-# Web フレームワーク
+# Web Framework
 axum.workspace = true
 tokio = { workspace = true }
 tower.workspace = true
 tower-http.workspace = true
 
-# シリアライゼーション
+# Serialization
 serde.workspace = true
 serde_json.workspace = true
 
-# 形態素解析
+# Morphological Analysis
 vibrato-rkyv.workspace = true
 
-# ロギング
+# Logging
 tracing.workspace = true
 tracing-subscriber.workspace = true
 
-# エラーハンドリング
+# Error Handling
 thiserror.workspace = true
 
 [lints]
@@ -38,6 +38,6 @@ workspace = true
 
 [features]
 default = []
-# 辞書ダウンロードを必要とする統合テストを有効化する
-# CIではデフォルトで無効（スキップ）、ローカルで明示的に有効化して使用
+# Enable integration tests that require dictionary download
+# Default is disabled (skipped) in CI, enable explicitly locally to use
 with_dict_tests = []

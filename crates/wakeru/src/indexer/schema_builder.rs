@@ -1,7 +1,7 @@
-//! Tantivy スキーマビルダー
+//! Tantivy Schema Builder
 //!
-//! RAG パイプライン向けの Tantivy インデックススキーマを定義します。
-//! 言語ごとに適切なトークナイザーを自動選択します。
+//! Defines Tantivy index schema for RAG pipeline.
+//! Automatically selects appropriate tokenizer for each language.
 
 use tantivy::schema::{
   Field, IndexRecordOption, JsonObjectOptions, STORED, STRING, Schema, TextFieldIndexing,
@@ -10,61 +10,59 @@ use tantivy::schema::{
 
 use crate::config::Language;
 
-/// スキーマフィールドへの参照をまとめて保持する構造体。
+/// Structure holding references to schema fields.
 ///
-/// Tantivy の `Schema::get_field()` は文字列ベースの検索であるため、
-/// フィールド名を typo するリスクがあります。この構造体は型安全な
-/// フィールド参照を提供します。
+/// Since `Schema::get_field()` in Tantivy is string-based search,
+/// there is a risk of typo in field names. This structure provides
+/// type-safe field references.
 #[derive(Clone, Copy, Debug)]
 pub struct SchemaFields {
-  /// チャンク ID (STRING + STORED) - 完全一致用
+  /// Chunk ID (STRING + STORED) - For exact match
   pub id: Field,
-  /// 元ドキュメント ID (STRING + STORED)
+  /// Source Document ID (STRING + STORED)
   pub source_id: Field,
-  /// 本文フィールド (TEXT + STORED, 言語別トークナイザー)
+  /// Body field (TEXT + STORED, language-specific tokenizer)
   pub text: Field,
-  /// 構造化メタデータ (JsonObject, STORED + INDEXED, raw tokenizer)
-  /// タグ等のフィルタリング検索が可能
+  /// Structured metadata (JsonObject, STORED + INDEXED, raw tokenizer)
+  /// Tag filtering etc. is possible
   pub metadata: Field,
-  /// 1文字N-gram用フィールド (TEXT, ja_ngram トークナイザー)
-  /// 1文字クエリでの部分一致検索用
-  /// 日本語のみで使用、英語では None
-  /// 既存インデックスでは存在しない可能性があるため Option
+  /// Field for 1-char N-gram (TEXT, ja_ngram tokenizer)
+  /// For partial match search with 1-char query
+  /// Used only in Japanese, None in English
+  /// Option because it may not exist in existing indices
   pub text_ngram: Option<Field>,
 }
 
 impl SchemaFields {
-  /// 既存スキーマから SchemaFields を再構築する。
+  /// Reconstructs SchemaFields from an existing schema.
   ///
-  /// 既存インデックスを開く際に使用する。ディスク上のスキーマから
-  /// フィールドを取得し、SchemaFields 構造体を構築する。
+  /// Used when opening an existing index. Retrieves fields from the schema on disk
+  /// and constructs SchemaFields structure.
   ///
-  /// # 引数
-  /// - `schema`: Tantivy スキーマ
+  /// # Arguments
+  /// - `schema`: Tantivy schema
   ///
-  /// # 戻り値
-  /// - `Ok(SchemaFields)`: フィールド取得成功
-  /// - `Err(tantivy::TantivyError)`: 必須フィールドが見つからない
+  /// # Returns
+  /// - `Ok(SchemaFields)`: Field retrieval successful
+  /// - `Err(tantivy::TantivyError)`: Required field not found
   ///
-  /// # エラー条件
-  /// - `id`, `source_id`, `text`, `metadata` のいずれかが見つからない
+  /// # Error conditions
+  /// - One of `id`, `source_id`, `text`, `metadata` is not found
   pub fn from_schema(schema: &Schema) -> Result<Self, tantivy::TantivyError> {
     let id = schema.get_field("id").map_err(|e| {
-      tantivy::TantivyError::InvalidArgument(format!("フィールド 'id' が見つかりません: {e}"))
+      tantivy::TantivyError::InvalidArgument(format!("Field 'id' not found: {e}"))
     })?;
     let source_id = schema.get_field("source_id").map_err(|e| {
-      tantivy::TantivyError::InvalidArgument(format!(
-        "フィールド 'source_id' が見つかりません: {e}"
-      ))
+      tantivy::TantivyError::InvalidArgument(format!("Field 'source_id' not found: {e}"))
     })?;
     let text = schema.get_field("text").map_err(|e| {
-      tantivy::TantivyError::InvalidArgument(format!("フィールド 'text' が見つかりません: {e}"))
+      tantivy::TantivyError::InvalidArgument(format!("Field 'text' not found: {e}"))
     })?;
     let metadata = schema.get_field("metadata").map_err(|e| {
-      tantivy::TantivyError::InvalidArgument(format!("フィールド 'metadata' が見つかりません: {e}"))
+      tantivy::TantivyError::InvalidArgument(format!("Field 'metadata' not found: {e}"))
     })?;
 
-    // N-gram用フィールドは日本語インデックスのみ、または古いインデックスに存在しない可能性
+    // N-gram field is only for Japanese index, or may not exist in old index
     let text_ngram = schema.get_field("text_ngram").ok();
 
     Ok(Self {
@@ -77,78 +75,78 @@ impl SchemaFields {
   }
 }
 
-/// Tantivy スキーマを構築する。
+/// Builds Tantivy schema.
 ///
-/// # フィールド構成
+/// # Field Configuration
 ///
-/// - `id`: チャンク ID (STRING + STORED) 完全一致用
-/// - `source_id`: 元文書 ID (STRING + STORED)
-/// - `text`: 本文 (TEXT + STORED, 言語別トークナイザー)
-/// - `metadata`: 構造化メタデータ (JsonObject, STORED + INDEXED, raw tokenizer)
-/// - `text_ngram`: 1文字N-gram用 (TEXT, ja_ngram トークナイザー) - 日本語のみ
+/// - `id`: Chunk ID (STRING + STORED) For exact match
+/// - `source_id`: Source Document ID (STRING + STORED)
+/// - `text`: Body (TEXT + STORED, language-specific tokenizer)
+/// - `metadata`: Structured metadata (JsonObject, STORED + INDEXED, raw tokenizer)
+/// - `text_ngram`: For 1-char N-gram (TEXT, ja_ngram tokenizer) - Japanese only
 ///
-/// # トークナイザー設定（言語依存）
+/// # Tokenizer Settings (Language dependent)
 ///
-/// - 日本語 (`Language::Ja`):
-///   - `text` フィールドには `lang_ja` トークナイザー
-///   - `text_ngram` フィールドには `ja_ngram` トークナイザー
-/// - 英語 (`Language::En`):
-///   - `text` フィールドには `lang_en` トークナイザー（SimpleTokenizer + LowerCaser）
-///   - `text_ngram` フィールドは作成されない
+/// - Japanese (`Language::Ja`):
+///   - `lang_ja` tokenizer for `text` field
+///   - `ja_ngram` tokenizer for `text_ngram` field
+/// - English (`Language::En`):
+///   - `lang_en` tokenizer for `text` field (SimpleTokenizer + LowerCaser)
+///   - `text_ngram` field is not created
 ///
-/// トークナイザーは `IndexManager` 作成時に登録される必要があります。
+/// Tokenizers must be registered when creating `IndexManager`.
 ///
-/// # IndexRecordOption の選択理由
+/// # Reason for selecting IndexRecordOption
 ///
-/// `WithFreqsAndPositions` を選択しています：
-/// - BM25 スコア計算には出現頻度 (Freqs) が必要
-/// - フレーズ検索には位置情報 (Positions) が必要
-/// - ハイライト表示にも position 情報が活用される
+/// `WithFreqsAndPositions` is selected:
+/// - Term frequency (Freqs) is required for BM25 score calculation
+/// - Position information (Positions) is required for phrase search
+/// - Position information is also used for highlighting
 ///
-/// # metadata フィールドの設計
+/// # Metadata field design
 ///
-/// `metadata` は JsonObject 型で、以下の特徴を持ちます：
-/// - STORED: 検索結果で復元可能
-/// - INDEXED (raw tokenizer): `metadata.tags:value` 形式でフィルタリング検索が可能
-/// - raw トークナイザーはトークナイズを行わないため、完全一致検索に適する
+/// `metadata` is JsonObject type and has the following characteristics:
+/// - STORED: Restorable in search results
+/// - INDEXED (raw tokenizer): Filtering search is possible in `metadata.tags:value` format
+/// - raw tokenizer does not tokenize, so it fits exact match search
 ///
-/// # 例
+/// # Examples
 ///
 /// ```no_run
 /// use wakeru::indexer::schema_builder::build_schema;
 /// use wakeru::Language;
 ///
 /// let (schema, fields) = build_schema(Language::Ja);
-/// // schema を Index::create_in_dir に渡す
-/// // fields を IndexManager や SearchEngine で使用
+/// // Pass schema to Index::create_in_dir
+/// // Use fields in IndexManager or SearchEngine
 /// ```
 pub fn build_schema(language: Language) -> (Schema, SchemaFields) {
   let mut builder = Schema::builder();
 
-  // ID フィールド: 完全一致検索 + 格納
+  // ID field: Exact match search + Stored
   let id = builder.add_text_field("id", STRING | STORED);
 
-  // 元ドキュメント ID
+  // Source document ID
   let source_id = builder.add_text_field("source_id", STRING | STORED);
 
-  // 本文フィールド: 言語別トークナイザー + 頻度・位置を記録
+  // Body field: Language-specific tokenizer + Record frequency and position
   let text_indexing = TextFieldIndexing::default()
     .set_tokenizer(language.text_tokenizer_name())
     .set_index_option(IndexRecordOption::WithFreqsAndPositions);
   let text_options = TextOptions::default().set_indexing_options(text_indexing).set_stored();
   let text = builder.add_text_field("text", text_options);
 
-  // メタデータフィールド: JsonObject（フィルタリング検索可能）
-  // raw トークナイザーで完全一致検索を可能にする
-  // Tantivy 0.25: JsonObjectOptions::set_indexing_options は TextFieldIndexing を受け取る
+  // Metadata field: JsonObject (Filterable search possible)
+  // Enable exact match search with raw tokenizer
+  // Tantivy 0.25: JsonObjectOptions::set_indexing_options accepts TextFieldIndexing
   let json_indexing =
     TextFieldIndexing::default().set_tokenizer("raw").set_index_option(IndexRecordOption::Basic);
   let metadata_options =
     JsonObjectOptions::default().set_stored().set_indexing_options(json_indexing);
   let metadata = builder.add_json_field("metadata", metadata_options);
 
-  // 1文字N-gram用フィールド: 日本語のみ作成
-  // 英語の場合は None
+  // 1-char N-gram field: Created only for Japanese
+  // None for English
   let text_ngram = language.ngram_tokenizer_name().map(|tokenizer_name| {
     let text_ngram_indexing = TextFieldIndexing::default()
       .set_tokenizer(tokenizer_name)

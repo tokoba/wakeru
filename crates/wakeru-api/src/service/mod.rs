@@ -1,4 +1,4 @@
-//! サービスモジュール
+//! Service module
 
 mod wakeru_api_service;
 
