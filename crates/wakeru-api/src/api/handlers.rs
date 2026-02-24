@@ -25,7 +25,10 @@ pub async fn post_wakeru(
   State(state): State<AppState>,
   Json(request): Json<WakeruRequest>,
 ) -> Result<Json<WakeruResponse>, ApiError> {
-  debug!(text_len = request.text.len(), "Received morphological analysis request");
+  debug!(
+    text_len = request.text.len(),
+    "Received morphological analysis request"
+  );
 
   // Execute CPU-bound processing with spawn_blocking
   // Morphological analysis is a heavy process, so separate it to avoid blocking the async runtime

@@ -95,9 +95,6 @@ fn verify_byte_offsets() {
 
     // Verify correct slice of original text can be obtained from offset
     let slice = &text[token.offset_from..token.offset_to];
-    assert_eq!(
-      slice, token.text,
-      "Offset slice does not match token text"
-    );
+    assert_eq!(slice, token.text, "Offset slice does not match token text");
   }
 }

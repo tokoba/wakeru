@@ -49,9 +49,9 @@ impl SchemaFields {
   /// # Error conditions
   /// - One of `id`, `source_id`, `text`, `metadata` is not found
   pub fn from_schema(schema: &Schema) -> Result<Self, tantivy::TantivyError> {
-    let id = schema.get_field("id").map_err(|e| {
-      tantivy::TantivyError::InvalidArgument(format!("Field 'id' not found: {e}"))
-    })?;
+    let id = schema
+      .get_field("id")
+      .map_err(|e| tantivy::TantivyError::InvalidArgument(format!("Field 'id' not found: {e}")))?;
     let source_id = schema.get_field("source_id").map_err(|e| {
       tantivy::TantivyError::InvalidArgument(format!("Field 'source_id' not found: {e}"))
     })?;

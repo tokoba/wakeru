@@ -45,7 +45,7 @@ impl DictionaryManager {
     Ok(Self {
       cache_dir,
       preset_kind: Some(preset_kind),
-      dictionary_path: None,       // Dictionary path is not needed when using a preset dictionary
+      dictionary_path: None, // Dictionary path is not needed when using a preset dictionary
       dictionary: OnceLock::new(), // New load
     })
   }

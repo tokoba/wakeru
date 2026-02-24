@@ -115,7 +115,10 @@ fn basic_tokenize_with_cached_dictionary() {
   worker.tokenize();
 
   // Confirm token count is not zero
-  assert!(worker.num_tokens() > 0, "Morphological analysis result is empty");
+  assert!(
+    worker.num_tokens() > 0,
+    "Morphological analysis result is empty"
+  );
 
   // Output surface form and part-of-speech info for each token (for debugging)
   for token in worker.token_iter() {
