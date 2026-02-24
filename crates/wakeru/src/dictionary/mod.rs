@@ -1,5 +1,5 @@
-//! dictionary モジュール
+//! dictionary module
 pub mod dictionary_manager;
 
-/// 再エクスポート
+/// Re-exports
 pub use dictionary_manager::DictionaryManager;

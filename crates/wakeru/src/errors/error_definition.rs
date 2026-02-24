@@ -1,4 +1,4 @@
-//! エラー定義
+//! Error Definitions
 
 use std::io;
 use std::path::PathBuf;
@@ -8,31 +8,31 @@ use vibrato_rkyv::dictionary::PresetDictionaryKind;
 
 use crate::config::Language;
 
-/// 設定ファイル（WakeruConfig）関連のエラー
+/// Configuration file (WakeruConfig) related errors
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum ConfigError {
-  /// index.languages が空
-  #[error("languages に少なくとも1つの言語を指定してください")]
+  /// index.languages is empty
+  #[error("Please specify at least one language in languages")]
   EmptyLanguages,
 
-  /// index.default_language が index.languages に含まれていない
-  #[error("default_language ({default_language}) は languages に含まれている必要があります")]
+  /// index.default_language is not included in index.languages
+  #[error("default_language ({default_language}) must be included in languages")]
   DefaultLanguageNotInLanguages {
-    /// 指定された default_language
+    /// Specified default_language
     default_language: Language,
   },
 
   /// search.default_limit < 1
-  #[error("search.default_limit は 1 以上である必要があります: actual={actual}")]
+  #[error("search.default_limit must be 1 or greater: actual={actual}")]
   InvalidSearchDefaultLimit {
-    /// 実際に指定された値
+    /// Actually specified value
     actual: usize,
   },
 
   /// search.max_limit < search.default_limit
   #[error(
-    "search.max_limit は search.default_limit 以上である必要があります: \
+    "search.max_limit must be greater than or equal to search.default_limit: \
      default_limit={default_limit}, max_limit={max_limit}"
   )]
   InvalidSearchMaxLimit {
@@ -42,225 +42,225 @@ pub enum ConfigError {
     max_limit: usize,
   },
 
-  /// index.writer_memory_bytes が許容範囲外
+  /// index.writer_memory_bytes is out of range
   #[error(
-    "index.writer_memory_bytes は {min}〜{max} バイトの範囲で指定してください: actual={actual}"
+    "index.writer_memory_bytes must be in the range of {min} to {max} bytes: actual={actual}"
   )]
   InvalidWriterMemoryBytes {
-    /// 許容される最小値（バイト）
+    /// Minimum allowed value (bytes)
     min: u64,
-    /// 許容される最大値（バイト）
+    /// Maximum allowed value (bytes)
     max: u64,
-    /// 実際に指定された値（バイト）
+    /// Actually specified value (bytes)
     actual: u64,
   },
 
   /// index.batch_commit_size < 1
-  #[error("index.batch_commit_size は 1 以上である必要があります: actual={actual}")]
+  #[error("index.batch_commit_size must be 1 or greater: actual={actual}")]
   InvalidBatchCommitSize {
-    /// 実際に指定された値
+    /// Actually specified value
     actual: usize,
   },
 
-  /// dictionary.cache_dir が「存在するディレクトリ」でない（ファイルである等）
-  #[error("dictionary.cache_dir がディレクトリではありません: path={path:?}")]
+  /// dictionary.cache_dir is not an "existing directory" (e.g. it is a file)
+  #[error("dictionary.cache_dir is not a directory: path={path:?}")]
   InvalidDictionaryCacheDir {
-    /// 不正なパス
+    /// Invalid path
     path: PathBuf,
   },
 
-  /// dictionary.cache_dir の作成に失敗
-  #[error("dictionary.cache_dir の作成に失敗しました: path={path:?}, error={source}")]
+  /// Failed to create dictionary.cache_dir
+  #[error("Failed to create dictionary.cache_dir: path={path:?}, error={source}")]
   DictionaryCacheDirCreationFailed {
-    /// 作成しようとしたパス
+    /// Path attempted to create
     path: PathBuf,
-    /// 元となった IO エラー
+    /// Original IO error
     #[source]
     source: Arc<io::Error>,
   },
 }
 
-/// 辞書関連のエラー
-/// Vibrato では mecab, ipadic, unidic 等の辞書を使用可能
-/// これらのエラーを定義する
+/// Dictionary related errors
+/// Vibrato can use dictionaries such as mecab, ipadic, unidic
+/// Define these errors
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum DictionaryError {
-  /// キャッシュディレクトリーが見つからない
-  #[error("辞書キャッシュディレクトリーが見つかりません")]
+  /// Cache directory not found
+  #[error("Dictionary cache directory not found")]
   CacheDirNotFound,
 
-  /// キャッシュディレクトリーの作成失敗
-  #[error("辞書キャッシュディレクトリーの作成に失敗しました: {0}")]
+  /// Failed to create cache directory
+  #[error("Failed to create dictionary cache directory: {0}")]
   CacheDirCreationFailed(Arc<io::Error>),
 
-  /// 指定された辞書が見つからない
-  #[error("指定された辞書が見つかりません: {0}")]
+  /// Specified dictionary not found
+  #[error("Specified dictionary not found: {0}")]
   DictionaryNotFound(String),
 
-  /// 辞書のダウンロード失敗（URL, IOエラー等）
-  #[error("辞書のダウンロードに失敗しました: {0}")]
+  /// Dictionary download failed (URL, IO error, etc.)
+  #[error("Failed to download dictionary: {0}")]
   DownloadFailed(String),
 
-  /// 辞書の検証に失敗（ハッシュ不一致等）
-  #[error("辞書の検証に失敗しました: {0}")]
+  /// Dictionary validation failed (Hash mismatch, etc.)
+  #[error("Dictionary validation failed: {0}")]
   ValidationFailed(String),
 
-  /// 辞書パスが不正
-  #[error("辞書パスが不正です: {0}")]
+  /// Invalid dictionary path
+  #[error("Invalid dictionary path: {0}")]
   InvalidPath(PathBuf),
 
-  /// 辞書パスが不正または辞書種別が不正
-  #[error("辞書パスまたは辞書種別が不正です: path={0}, preset_kind={1:?}")]
+  /// Invalid dictionary path or invalid dictionary type
+  #[error("Invalid dictionary path or invalid dictionary type: path={0}, preset_kind={1:?}")]
   InvalidPathOrInvalidPresetKind(PathBuf, Option<PresetDictionaryKind>),
 
-  /// vibrato-rkyv による辞書のロード失敗
-  #[error("vibrato-rkyv 辞書ロードエラー: {0}")]
+  /// Failed to load dictionary by vibrato-rkyv
+  #[error("vibrato-rkyv dictionary load error: {0}")]
   VibratoLoad(Arc<dyn std::error::Error + Send + Sync + 'static>),
 
-  /// vibrato-rkyv のプリセット辞書のダウンロード失敗
-  #[error("vibrato-rkyv プリセット辞書ダウンロード失敗: {0}")]
+  /// Failed to download preset dictionary by vibrato-rkyv
+  #[error("vibrato-rkyv preset dictionary download failed: {0}")]
   PresetDictDownloadFailed(Arc<dyn std::error::Error + Send + Sync + 'static>),
 }
 
-/// トークナイザー関連エラー
+/// Tokenizer related errors
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum TokenizerError {
-  /// 辞書起因のエラー
-  #[error("辞書エラー: {0}")]
+  /// Dictionary caused error
+  #[error("Dictionary error: {0}")]
   Dictionary(#[from] DictionaryError),
 
-  /// 入力テキストが不正
-  #[error("トークナイズ対象の入力テキストが不正: {reason}")]
+  /// Invalid input text
+  #[error("Invalid input text for tokenization: {reason}")]
   InvalidInput {
-    /// 不正の理由
+    /// Reason for invalidity
     reason: String,
   },
 }
 
-/// インデクサー関連のエラー
+/// Indexer related errors
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum IndexerError {
-  /// トークナイザー起因のエラー
-  #[error("トークナイザーエラー: {0}")]
+  /// Tokenizer caused error
+  #[error("Tokenizer error: {0}")]
   Tokenizer(#[from] TokenizerError),
 
-  /// Tantivy のインデックス操作エラー
-  #[error("Tantivy インデックスエラー: {0}")]
+  /// Tantivy index operation error
+  #[error("Tantivy index error: {0}")]
   Tantivy(#[from] tantivy::TantivyError),
 
-  /// インデックスパスが不正、またはディレクトリ作成に失敗
-  #[error("インデックスパスが不正: {path}: {source}")]
+  /// Invalid index path, or failed to create directory
+  #[error("Invalid index path: {path}: {source}")]
   InvalidIndexPath {
-    /// 問題が発生したパス
+    /// Path where the problem occurred
     path: PathBuf,
-    /// 発生した I/O エラー
+    /// IO error occurred
     #[source]
     source: Arc<io::Error>,
   },
 
-  /// インデックスが既に存在する（CreateNew モードで既存インデックスがあった場合）
-  #[error("インデックスは既に存在します: {0}")]
+  /// Index already exists (when CreateNew mode found existing index)
+  #[error("Index already exists: {0}")]
   IndexAlreadyExists(PathBuf),
 
-  /// インデックスが見つからない（OpenExisting モードでインデックスが存在しない場合）
-  #[error("インデックスが見つかりません: {0}")]
+  /// Index not found (when OpenExisting mode found no index)
+  #[error("Index not found: {0}")]
   IndexNotFound(PathBuf),
 
-  /// 日本語トークナイザーが提供されていない
-  #[error("日本語インデックスには VibratoTokenizer が必要です")]
+  /// Japanese tokenizer is not provided
+  #[error("VibratoTokenizer is required for Japanese index")]
   MissingJapaneseTokenizer,
 
-  /// スキーマと言語の不一致
-  #[error("スキーマと言語が一致しません: expected={expected}, actual={actual}")]
+  /// Mismatch between schema and language
+  #[error("Schema and language mismatch: expected={expected}, actual={actual}")]
   LanguageSchemaMismatch {
-    /// 期待するトークナイザー名
+    /// Expected tokenizer name
     expected: String,
-    /// 実際のトークナイザー名
+    /// Actual tokenizer name
     actual: String,
   },
 
-  /// メタデータの JSON シリアライズ失敗
-  #[error("メタデータのシリアライズに失敗しました: doc_id={doc_id}, error={source}")]
+  /// Metadata JSON serialization failed
+  #[error("Failed to serialize metadata: doc_id={doc_id}, error={source}")]
   MetadataSerialize {
-    /// 対象ドキュメントID
+    /// Target document ID
     doc_id: String,
-    /// 元となった JSON エラー
+    /// Original JSON error
     #[source]
     source: Arc<serde_json::Error>,
   },
 }
 
-/// 検索関連エラー
+/// Search related errors
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum SearcherError {
-  /// Tantivy の検索処理エラー
-  #[error("Tantivy 検索エラー: {0}")]
+  /// Tantivy search processing error
+  #[error("Tantivy search error: {0}")]
   Tantivy(#[from] tantivy::TantivyError),
 
-  /// クエリの解析に失敗
-  #[error("クエリ解析エラー: {reason}")]
+  /// Failed to parse query
+  #[error("Query parse error: {reason}")]
   InvalidQuery {
-    /// クエリ不正の理由
+    /// Reason for query invalidity
     reason: String,
   },
 
-  /// インデックスのスキーマ不整合など、検索に利用できない状態
-  #[error("インデックスが不正です: field={field}, reason={reason}")]
+  /// State where index cannot be used for search, such as schema inconsistency
+  #[error("Invalid index: field={field}, reason={reason}")]
   InvalidIndex {
-    /// 問題が発生したフィールド名
+    /// Field name where the problem occurred
     field: String,
-    /// 不整合の理由
+    /// Reason for inconsistency
     reason: String,
   },
 
-  /// メタデータ JSON のデシリアライズ失敗
-  #[error("メタデータのデシリアライズに失敗しました: doc_id={doc_id}, error={source}")]
+  /// Metadata JSON deserialization failed
+  #[error("Failed to deserialize metadata: doc_id={doc_id}, error={source}")]
   MetadataDeserialize {
-    /// 対象ドキュメントID
+    /// Target document ID
     doc_id: String,
-    /// 元となった JSON エラー
+    /// Original JSON error
     #[source]
     source: Arc<serde_json::Error>,
   },
 }
 
-/// 統合エラー
-/// 本クレートの外部に公開するエラー用 API はこのエラーを返すこと
-/// `WakeruResult<T>` = `Result<T, WakeruError>` として使用する
+/// Unified error
+/// API exposed to the outside of this crate should return this error
+/// Use as `WakeruResult<T>` = `Result<T, WakeruError>`
 #[derive(Debug, Error, Clone)]
 #[non_exhaustive]
 pub enum WakeruError {
-  /// 辞書関連エラー
+  /// Dictionary related error
   #[error(transparent)]
   Dictionary(#[from] DictionaryError),
 
-  /// トークナイザー関連エラー
+  /// Tokenizer related error
   #[error(transparent)]
   Tokenizer(#[from] TokenizerError),
 
-  /// インデクサー関連エラー
+  /// Indexer related error
   #[error(transparent)]
   Indexer(#[from] IndexerError),
 
-  /// 検索関連エラー
+  /// Search related error
   #[error(transparent)]
   Searcher(#[from] SearcherError),
 
-  /// サポートされていない言語
-  #[error("サポートされていない言語です: {language}")]
+  /// Unsupported language
+  #[error("Unsupported language: {language}")]
   UnsupportedLanguage {
-    /// 指定された言語
+    /// Specified language
     language: Language,
   },
 
-  /// 設定エラー
+  /// Configuration error
   #[error(transparent)]
   Config(#[from] ConfigError),
 }
 
-/// wakeru クレートの標準 Result 型エイリアス
+/// Standard Result type alias for wakeru crate
 pub type WakeruResult<T> = Result<T, WakeruError>;

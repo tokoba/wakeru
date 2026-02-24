@@ -1,8 +1,8 @@
 //! crates/wakeru/tests/integration_test.rs
 //!
-//! エンドツーエンド統合テスト。
-//! 辞書ロード → トークナイザー構築 → インデックス作成 →
-//! ドキュメント追加 → 検索 → 結果検証 の全フローを確認する。
+//! End-to-end integration test.
+//! Verifies the entire flow: Load dictionary -> Build tokenizer -> Create index ->
+//! Add documents -> Search -> Verify results.
 
 use std::sync::Arc;
 
@@ -17,30 +17,30 @@ use wakeru::models::Document;
 use wakeru::searcher::SearchEngine;
 use wakeru::tokenizer::vibrato_tokenizer::VibratoTokenizer;
 
-/// 辞書キャッシュの存在を前提条件としてチェックする。
-/// キャッシュがなければテストをスキップする。
+/// Check for the existence of dictionary cache as a prerequisite.
+/// Skip test if cache does not exist.
 fn setup_tokenizer() -> Option<Arc<TextAnalyzer>> {
-  // プリセット辞書 (IPADIC) を使う DictionaryManager を構築
+  // Build DictionaryManager using preset dictionary (IPADIC)
   let manager = DictionaryManager::with_preset(PresetDictionaryKind::Ipadic).ok()?;
 
-  // 既に辞書キャッシュが存在するか確認（なければテストをスキップ）
+  // Check if dictionary cache already exists (Skip test if not)
   let cache_dir = manager.cache_dir();
   if !cache_dir.join(PresetDictionaryKind::Ipadic.name()).exists() {
-    eprintln!("辞書キャッシュなし → テストスキップ");
+    eprintln!("No dictionary cache -> Skip test");
     return None;
   }
 
-  // 辞書ロード（Arc<Dictionary>）
+  // Load dictionary (Arc<Dictionary>)
   let dict = manager.load().ok()?;
 
-  // 共有辞書から VibratoTokenizer を構築し、TextAnalyzer に変換
+  // Build VibratoTokenizer from shared dictionary and convert to TextAnalyzer
   let tokenizer = VibratoTokenizer::from_shared_dictionary(dict);
   let analyzer = TextAnalyzer::from(tokenizer);
 
   Some(Arc::new(analyzer))
 }
 
-/// サンプルドキュメント群を生成する。
+/// Generate sample documents.
 fn sample_documents() -> Vec<Document> {
   vec![
     Document::new(
@@ -76,90 +76,90 @@ fn sample_documents() -> Vec<Document> {
   ]
 }
 
-/// 基本的な検索フローの統合テスト。
+/// Integration test for basic search flow.
 #[test]
 fn end_to_end_search_flow() {
-  // 辞書キャッシュが無ければテストをスキップ
+  // Skip test if no dictionary cache
   let analyzer = match setup_tokenizer() {
     Some(t) => t,
     None => return,
   };
 
-  // 一時ディレクトリにインデックスを作成
-  let tmp_dir = TempDir::new().expect("一時ディレクトリ作成失敗");
+  // Create index in temporary directory
+  let tmp_dir = TempDir::new().expect("Failed to create temporary directory");
 
-  // IndexManager 作成（存在しなければ新規作成）
-  // 日本語インデックスなので Language::Ja + Some(text_analyzer) を渡す
+  // Create IndexManager (Create new if not exists)
+  // Pass Language::Ja + Some(text_analyzer) as it is a Japanese index
   let index_manager =
     IndexManager::open_or_create(tmp_dir.path(), Language::Ja, Some((*analyzer).clone()))
-      .expect("インデックス作成失敗");
+      .expect("Failed to create index");
 
-  // ドキュメント追加
-  index_manager.add_documents(&sample_documents()).expect("ドキュメント追加失敗");
+  // Add documents
+  index_manager.add_documents(&sample_documents()).expect("Failed to add documents");
 
-  // SearchEngine 初期化
+  // Initialize SearchEngine
   let search_engine = SearchEngine::new(
     index_manager.index(),
-    *index_manager.fields(), // SchemaFields は Copy を想定
+    *index_manager.fields(), // SchemaFields assumes Copy
     index_manager.language(),
   )
-  .expect("SearchEngine 初期化失敗");
+  .expect("Failed to initialize SearchEngine");
 
-  // ── テスト1: 「東京」で検索 ──
-  let results = search_engine.search("東京", 5).expect("検索失敗");
-  assert!(!results.is_empty(), "「東京」の検索結果が空");
+  // ── Test 1: Search for "東京" ──
+  let results = search_engine.search("東京", 5).expect("Search failed");
+  assert!(!results.is_empty(), "Search result for '東京' is empty");
   assert_eq!(results[0].doc_id, "chunk-001");
 
-  // ── テスト2: 「寺院」で検索 ──
-  let results = search_engine.search("寺院", 5).expect("検索失敗");
-  assert!(!results.is_empty(), "「寺院」の検索結果が空");
+  // ── Test 2: Search for "寺院" ──
+  let results = search_engine.search("寺院", 5).expect("Search failed");
+  assert!(!results.is_empty(), "Search result for '寺院' is empty");
 
-  // ── テスト3: 「Rust プログラミング」で検索 ──
-  let results = search_engine.search("Rust プログラミング", 5).expect("検索失敗");
-  assert!(!results.is_empty(), "「Rust」の検索結果が空");
-  // 技術系ドキュメントがヒットすること
+  // ── Test 3: Search for "Rust プログラミング" ──
+  let results = search_engine.search("Rust プログラミング", 5).expect("Search failed");
+  assert!(!results.is_empty(), "Search result for 'Rust' is empty");
+  // Ensure tech document hits
   assert!(
     results.iter().any(|r| r.doc_id == "chunk-004"),
-    "Rust のドキュメントがヒットしていません"
+    "Rust document not found"
   );
 
-  // ── テスト4: 存在しないキーワード ──
-  let results = search_engine.search("zzzzxxxx非存在語", 5).expect("検索失敗");
+  // ── Test 4: Non-existent keyword ──
+  let results = search_engine.search("zzzzxxxx非存在語", 5).expect("Search failed");
   assert!(
     results.is_empty(),
-    "存在しないキーワードで結果が返っています"
+    "Result returned for non-existent keyword"
   );
 }
 
-/// 空ドキュメントセットでの検索テスト。
+/// Search test on empty document set.
 #[test]
 fn search_on_empty_index() {
-  // 辞書キャッシュが無ければテストをスキップ
+  // Skip test if no dictionary cache
   let analyzer = match setup_tokenizer() {
     Some(t) => t,
     None => return,
   };
 
-  let tmp_dir = TempDir::new().expect("一時ディレクトリ作成失敗");
+  let tmp_dir = TempDir::new().expect("Failed to create temporary directory");
 
-  // 空インデックスを作成
+  // Create empty index
   let index_manager =
     IndexManager::open_or_create(tmp_dir.path(), Language::Ja, Some((*analyzer).clone()))
-      .expect("インデックス作成失敗");
+      .expect("Failed to create index");
 
-  // 空のドキュメントセットを追加（実質何もしない）
-  index_manager.add_documents(&[]).expect("空ドキュメント追加失敗");
+  // Add empty document set (effectively does nothing)
+  index_manager.add_documents(&[]).expect("Failed to add empty documents");
 
   let search_engine = SearchEngine::new(
     index_manager.index(),
-    *index_manager.fields(), // SchemaFields は Copy を想定
+    *index_manager.fields(), // SchemaFields assumes Copy
     index_manager.language(),
   )
-  .expect("SearchEngine 初期化失敗");
+  .expect("Failed to initialize SearchEngine");
 
-  let results = search_engine.search("何か", 5).expect("検索失敗");
+  let results = search_engine.search("何か", 5).expect("Search failed");
   assert!(
     results.is_empty(),
-    "空インデックスで結果が返っています（0件であるべき）"
+    "Result returned on empty index (should be 0)"
   );
 }

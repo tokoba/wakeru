@@ -1,5 +1,5 @@
-//! models モジュール
+//! models module
 pub mod model_definition;
 
-/// 再エクスポート
+/// Re-exports
 pub use model_definition::{Document, Metadata, SearchResult};

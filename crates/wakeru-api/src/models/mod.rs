@@ -1,4 +1,4 @@
-//! モデルモジュール
+//! Models module
 
 mod request;
 mod response;

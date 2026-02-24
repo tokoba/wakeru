@@ -1,4 +1,4 @@
-//! エラーモジュール
+//! Errors module
 
 mod error_definition;
 

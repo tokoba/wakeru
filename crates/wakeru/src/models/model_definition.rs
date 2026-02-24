@@ -1,70 +1,69 @@
-//! データモデル定義
+//! Data Model Definition
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 
-/// metadata 内でタグ情報を保存するための予約キー。
+/// Reserved key for saving tag information within metadata.
 ///
-/// 検索時のタグフィルタ（`metadata.tags:value`）は、このキーに保存された配列を前提とします。
+/// Tag filters during search (`metadata.tags:value`) assume an array saved under this key.
 pub const TAGS_KEY: &str = "tags";
 
-/// 任意のメタデータのキー・バリュー形式マップ
-/// qdrant `payload`やpgvector `jsonb` 列と適合するように
-/// キー・バリュー形式とする
+/// Arbitrary key-value map for metadata
+/// Uses key-value format to be compatible with qdrant `payload` and pgvector `jsonb` columns
 ///
-/// key: 文字列
-/// Value: Json値
+/// key: String
+/// Value: JsonValue
 ///
 pub type Metadata = HashMap<String, JsonValue>;
 
-/// インデックス対象のドキュメント
+/// Document to be indexed
 ///
-/// RAG パイプラインから投入される「チャンクテキスト + メタデータ」を想定します。
+/// Assumes "chunk text + metadata" input from RAG pipeline.
 ///
-/// # タグについて
+/// # About Tags
 ///
-/// タグは `metadata["tags"]` に JSON 配列として保存され、検索時のタグフィルタで利用されます。
-/// [`with_tag`](Self::with_tag) / [`with_tags`](Self::with_tags) / [`tags`](Self::tags) メソッドは、
-/// この予約キーを扱うための糖衣構文です。
+/// Tags are saved as a JSON array in `metadata["tags"]` and used for tag filtering during search.
+/// The [`with_tag`](Self::with_tag) / [`with_tags`](Self::with_tags) / [`tags`](Self::tags) methods are
+/// syntactic sugar for handling this reserved key.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Document {
-  /// チャンクID
+  /// Chunk ID
   pub id: String,
 
-  /// ソースドキュメントID
+  /// Source Document ID
   pub source_id: String,
 
-  /// チャンクテキスト本文
+  /// Chunk text body
   pub text: String,
 
-  /// 任意のメタデータ
+  /// Arbitrary metadata
   #[serde(default)]
   pub metadata: Metadata,
 }
 
-/// BM25検索結果
+/// BM25 Search Result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
-  /// チャンクID
+  /// Chunk ID
   pub doc_id: String,
 
-  /// ソースドキュメントID
+  /// Source Document ID
   pub source_id: String,
 
   /// BM25 score
   pub score: f32,
 
-  /// チャンクテキスト本文
+  /// Chunk text body
   pub text: String,
 
-  /// 任意メタデータ
+  /// Arbitrary metadata
   #[serde(default)]
   pub metadata: Metadata,
 }
 
-/// ドキュメントの実装ブロック
+/// Implementation block for Document
 impl Document {
-  /// ドキュメントのコンストラクタ
+  /// Constructor for Document
   pub fn new(id: impl Into<String>, source_id: impl Into<String>, text: impl Into<String>) -> Self {
     Self {
       id: id.into(),
@@ -74,35 +73,35 @@ impl Document {
     }
   }
 
-  /// メタデータを1件追加し Self を返すビルダー
+  /// Builder that adds one metadata item and returns Self
   #[must_use]
   pub fn with_metadata(mut self, key: impl Into<String>, value: JsonValue) -> Self {
     self.metadata.insert(key.into(), value);
     self
   }
 
-  /// 複数のメタデータを一括で追加し Self を返すビルダー
+  /// Builder that adds multiple metadata items at once and returns Self
   #[must_use]
   pub fn with_metadata_map(mut self, metadata: Metadata) -> Self {
     self.metadata.extend(metadata);
     self
   }
 
-  // ─── タグ用ヘルパーメソッド ───
+  // ─── Helper methods for tags ───
 
-  /// タグを 1 件追加するビルダーメソッド。
+  /// Builder method to add one tag.
   ///
-  /// # 挙動
+  /// # Behavior
   ///
-  /// - 内部的には `metadata[TAGS_KEY]`（デフォルトでは `"tags"`）に JSON 配列として格納されます。
-  /// - すでに `metadata["tags"]` が存在し、JSON 配列でない場合は配列で上書きします。
+  /// - Internally stored as a JSON array in `metadata[TAGS_KEY]` (default `"tags"`).
+  /// - If `metadata["tags"]` already exists and is not a JSON array, it overwrites it with an array.
   ///
-  /// # 目的
+  /// # Purpose
   ///
-  /// このメソッドは、検索時にタグフィルタ（`metadata.tags:value`）で利用される
-  /// `metadata["tags"]` を安全に操作するための糖衣構文です。
+  /// This method is syntactic sugar to safely manipulate `metadata["tags"]`
+  /// which is used in tag filters (`metadata.tags:value`) during search.
   ///
-  /// # 例
+  /// # Examples
   ///
   /// ```ignore
   /// let doc = Document::new("id1", "src1", "text")
@@ -117,16 +116,16 @@ impl Document {
     if let JsonValue::Array(arr) = entry {
       arr.push(JsonValue::String(tag));
     } else {
-      // すでに "tags" が別型で使われていた場合は上書き
+      // Overwrite if "tags" is already used by another type
       *entry = JsonValue::Array(vec![JsonValue::String(tag)]);
     }
 
     self
   }
 
-  /// 複数タグをまとめて追加するビルダーメソッド。
+  /// Builder method to add multiple tags at once.
   ///
-  /// [`with_tag`](Self::with_tag) を複数回呼び出すのと同等です。
+  /// Equivalent to calling [`with_tag`](Self::with_tag) multiple times.
   #[must_use]
   pub fn with_tags<I, S>(mut self, tags: I) -> Self
   where
@@ -139,11 +138,10 @@ impl Document {
     self
   }
 
-  /// メタデータに格納されているタグ一覧を取り出します。
+  /// Extracts the list of tags stored in metadata.
   ///
-  /// `metadata[TAGS_KEY]` が JSON 配列の場合のみ、その要素のうち
-  /// 文字列のものを `Vec<String>` として返します。
-  /// それ以外の場合や未設定の場合は空ベクタを返します。
+  /// Returns string elements as `Vec<String>` only if `metadata[TAGS_KEY]` is a JSON array.
+  /// Returns an empty vector in other cases or if unset.
   pub fn tags(&self) -> Vec<String> {
     self
       .metadata
@@ -155,7 +153,7 @@ impl Document {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// テストモジュール
+// Test Module
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -163,7 +161,7 @@ mod tests {
   use super::*;
   use serde_json::json;
 
-  // ─── Document::new のテスト ───────────────────────────────────────────────
+  // ─── Test Document::new ───────────────────────────────────────────────
 
   #[test]
   fn document_new_creates_empty_metadata() {
@@ -177,7 +175,7 @@ mod tests {
 
   #[test]
   fn document_new_accepts_string_and_str() {
-    // String で渡す
+    // Pass as String
     let doc1 = Document::new(
       String::from("id1"),
       String::from("src1"),
@@ -185,12 +183,12 @@ mod tests {
     );
     assert_eq!(doc1.id, "id1");
 
-    // &str で渡す
+    // Pass as &str
     let doc2 = Document::new("id2", "src2", "text2");
     assert_eq!(doc2.id, "id2");
   }
 
-  // ─── with_metadata / with_metadata_map のテスト ───────────────────────────
+  // ─── Test with_metadata / with_metadata_map ───────────────────────────
 
   #[test]
   fn with_metadata_adds_single_entry() {
@@ -230,7 +228,7 @@ mod tests {
     assert_eq!(doc.metadata["key"], json!("overwritten"));
   }
 
-  // ─── with_tag のテスト ────────────────────────────────────────────────────
+  // ─── Test with_tag ────────────────────────────────────────────────────
 
   #[test]
   fn with_tag_creates_tags_array_when_missing() {
@@ -250,11 +248,11 @@ mod tests {
 
   #[test]
   fn with_tag_overwrites_non_array_tags() {
-    // metadata["tags"] を文字列（非配列）で初期化
+    // Initialize metadata["tags"] with string (non-array)
     let mut doc = Document::new("id", "src", "text");
     doc.metadata.insert(TAGS_KEY.to_string(), json!("not-an-array"));
 
-    // with_tag を呼ぶと配列で上書きされる
+    // Calling with_tag overwrites it with an array
     let doc = doc.with_tag("fixed");
 
     let tags = doc.tags();
@@ -285,14 +283,14 @@ mod tests {
 
   #[test]
   fn with_tag_allows_duplicate_tags() {
-    // 重複タグは許容される（仕様通り）
+    // Duplicate tags are allowed (as per specification)
     let doc = Document::new("id", "src", "text").with_tag("dup").with_tag("dup");
 
     let tags = doc.tags();
     assert_eq!(tags, vec!["dup".to_string(), "dup".to_string()]);
   }
 
-  // ─── with_tags のテスト ───────────────────────────────────────────────────
+  // ─── Test with_tags ───────────────────────────────────────────────────
 
   #[test]
   fn with_tags_adds_multiple_tags() {
@@ -329,13 +327,13 @@ mod tests {
     );
   }
 
-  // ─── tags() のエッジケース ─────────────────────────────────────────────────
+  // ─── Edge cases for tags() ─────────────────────────────────────────────────
 
   #[test]
   fn tags_returns_empty_when_not_set() {
     let doc = Document::new("id", "src", "text");
 
-    // tags キーが存在しない
+    // tags key does not exist
     assert!(doc.tags().is_empty());
   }
 
@@ -344,7 +342,7 @@ mod tests {
     let mut doc = Document::new("id", "src", "text");
     doc.metadata.insert(TAGS_KEY.to_string(), json!("string-value"));
 
-    // tags が配列でない
+    // tags is not an array
     assert!(doc.tags().is_empty());
   }
 
@@ -364,7 +362,7 @@ mod tests {
       json!(["valid", 123, true, null, "also-valid"]),
     );
 
-    // 文字列要素だけが抽出される
+    // Only string elements are extracted
     let tags = doc.tags();
     assert_eq!(tags, vec!["valid".to_string(), "also-valid".to_string()]);
   }
@@ -377,7 +375,7 @@ mod tests {
     assert!(doc.tags().is_empty());
   }
 
-  // ─── with_metadata とタグの相互作用 ────────────────────────────────────────
+  // ─── Interaction between with_metadata and tags ────────────────────────────────────────
 
   #[test]
   fn with_metadata_does_not_conflict_with_tags() {
@@ -390,12 +388,12 @@ mod tests {
 
   #[test]
   fn with_metadata_can_overwrite_tags_key() {
-    // with_metadata で "tags" を上書きするとタグは壊れる
+    // If "tags" is overwritten by with_metadata, tags are broken
     let doc = Document::new("id", "src", "text")
       .with_tag("valid-tag")
       .with_metadata(TAGS_KEY, json!("broken"));
 
-    // tags() は空になる（非配列なので）
+    // tags() becomes empty (since it is not an array)
     assert!(doc.tags().is_empty());
   }
 
@@ -406,19 +404,19 @@ mod tests {
       .with_metadata(TAGS_KEY, json!("broken"))
       .with_tag("restored");
 
-    // with_tag が壊れた tags を修復する
+    // with_tag restores broken tags
     let tags = doc.tags();
     assert_eq!(tags, vec!["restored".to_string()]);
   }
 
-  // ─── TAGS_KEY 定数の確認 ───────────────────────────────────────────────────
+  // ─── Check TAGS_KEY constant ───────────────────────────────────────────────────
 
   #[test]
   fn tags_key_is_tags() {
     assert_eq!(TAGS_KEY, "tags");
   }
 
-  // ─── Document のシリアライズ/デシリアライズ ─────────────────────────────────
+  // ─── Document serialization/deserialization ─────────────────────────────────
 
   #[test]
   fn document_serializes_correctly() {
@@ -456,7 +454,7 @@ mod tests {
 
   #[test]
   fn document_deserializes_with_missing_metadata() {
-    // metadata は #[serde(default)] なので省略可能
+    // metadata is #[serde(default)] so it can be omitted
     let json_str = r#"{
       "id": "doc-1",
       "source_id": "src-1",
@@ -468,7 +466,7 @@ mod tests {
     assert!(doc.metadata.is_empty());
   }
 
-  // ─── SearchResult のテスト ────────────────────────────────────────────────
+  // ─── Test SearchResult ────────────────────────────────────────────────
 
   #[test]
   fn search_result_serializes_correctly() {
@@ -508,7 +506,7 @@ mod tests {
 
   #[test]
   fn search_result_deserializes_with_missing_metadata() {
-    // metadata は #[serde(default)] なので省略可能
+    // metadata is #[serde(default)] so it can be omitted
     let json_str = r#"{
       "doc_id": "doc-1",
       "source_id": "src-1",

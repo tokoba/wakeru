@@ -1,4 +1,4 @@
-//! tokenizer モジュール用統合テスト
+//! integration tests for tokenizer module
 //! tests/tokenizer_tests.rs
 
 use tantivy::tokenizer::{TokenStream, Tokenizer};
@@ -6,71 +6,71 @@ use vibrato_rkyv::dictionary::PresetDictionaryKind;
 use wakeru::dictionary::DictionaryManager;
 use wakeru::tokenizer::vibrato_tokenizer::VibratoTokenizer;
 
-/// VibratoTokenizer が正しくトークン列を返すことを確認。
+/// Verify that VibratoTokenizer returns correct token sequence.
 ///
-/// 辞書キャッシュが必要（事前に `cargo test -- --ignored` で辞書ダウンロード済みであること）
+/// Requires dictionary cache (Must be downloaded beforehand with `cargo test -- --ignored`)
 #[test]
 fn tokenize_basic_sentence() {
   let manager = DictionaryManager::with_preset(PresetDictionaryKind::Ipadic)
-    .expect("DictionaryManager 構築失敗");
+    .expect("Failed to build DictionaryManager");
 
   let cache_dir = manager.cache_dir();
   if !cache_dir.join(PresetDictionaryKind::Ipadic.name()).exists() {
-    eprintln!("辞書キャッシュが存在しないためスキップ");
+    eprintln!("Skipping as dictionary cache does not exist");
     return;
   }
 
-  let dict = manager.load().expect("辞書ロード失敗");
+  let dict = manager.load().expect("Failed to load dictionary");
 
-  // VibratoTokenizer を構築（Arc<Dictionary> をそのまま渡す）
+  // Build VibratoTokenizer (Pass Arc<Dictionary> as is)
   let mut tokenizer = VibratoTokenizer::from_shared_dictionary(dict);
 
-  // トークナイズを実行
+  // Execute tokenization
   let mut stream = tokenizer.token_stream("東京タワーは東京の観光名所です");
 
-  // トークンを収集
+  // Collect tokens
   let mut tokens = Vec::new();
   while stream.advance() {
     tokens.push(stream.token().text.clone());
   }
 
-  // 基本的なアサーション
-  assert!(!tokens.is_empty(), "トークンが空です");
+  // Basic assertions
+  assert!(!tokens.is_empty(), "Tokens are empty");
 
-  // 内容語が含まれていることを確認
-  // （助詞「は」「の」「です」は品詞フィルタで除外される想定）
-  println!("トークン: {:?}", tokens);
+  // Verify content words are included
+  // (Particles "は", "の", "です" are expected to be excluded by part-of-speech filter)
+  println!("Tokens: {:?}", tokens);
   assert!(
     tokens.contains(&"東京".to_string()),
-    "「東京」が含まれていません"
+    "Does not contain '東京'"
   );
 
-  // 助詞が除外されていることを確認
+  // Verify particles are excluded
   assert!(
     !tokens.contains(&"は".to_string()),
-    "助詞「は」が除外されていません"
+    "Particle 'は' is not excluded"
   );
   assert!(
     !tokens.contains(&"の".to_string()),
-    "助詞「の」が除外されていません"
+    "Particle 'の' is not excluded"
   );
 }
 
-/// バイトオフセットが正しいことを確認。
+/// Verify that byte offsets are correct.
 #[test]
 fn verify_byte_offsets() {
   let manager = DictionaryManager::with_preset(PresetDictionaryKind::Ipadic)
-    .expect("DictionaryManager 構築失敗");
+    .expect("Failed to build DictionaryManager");
 
   let cache_dir = manager.cache_dir();
   if !cache_dir.join(PresetDictionaryKind::Ipadic.name()).exists() {
-    eprintln!("辞書キャッシュが存在しないためスキップ");
+    eprintln!("Skipping as dictionary cache does not exist");
     return;
   }
 
-  let dict = manager.load().expect("辞書ロード失敗");
+  let dict = manager.load().expect("Failed to load dictionary");
 
-  // VibratoTokenizer を構築（Arc<Dictionary> をそのまま渡す）
+  // Build VibratoTokenizer (Pass Arc<Dictionary> as is)
   let mut tokenizer = VibratoTokenizer::from_shared_dictionary(dict);
 
   let text = "東京タワー";
@@ -79,7 +79,7 @@ fn verify_byte_offsets() {
   while stream.advance() {
     let token = stream.token();
 
-    // オフセットが元テキストのバイト範囲内であることを確認
+    // Verify offset is within the byte range of original text
     assert!(
       token.offset_from <= token.offset_to,
       "offset_from({}) > offset_to({})",
@@ -88,16 +88,13 @@ fn verify_byte_offsets() {
     );
     assert!(
       token.offset_to <= text.len(),
-      "offset_to({}) がテキスト長({})を超えています",
+      "offset_to({}) exceeds text length({})",
       token.offset_to,
       text.len(),
     );
 
-    // オフセットから元テキストのスライスが正しく取得できることを確認
+    // Verify correct slice of original text can be obtained from offset
     let slice = &text[token.offset_from..token.offset_to];
-    assert_eq!(
-      slice, token.text,
-      "オフセットスライスがトークンテキストと一致しません"
-    );
+    assert_eq!(slice, token.text, "Offset slice does not match token text");
   }
 }

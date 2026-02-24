@@ -1,2 +1,2 @@
-//! tokenizer モジュール用統合テスト
+//! integration tests for tokenizer module
 pub mod tokenizer_tests;

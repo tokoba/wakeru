@@ -1,27 +1,27 @@
-//! APIステート定義
+//! API State Definition
 
 use std::sync::Arc;
 
 use crate::config::Config;
 use crate::service::WakeruApiService;
 
-/// アプリケーション状態
+/// Application State
 ///
-/// サーバー全体で共有される状態。
-/// 設定とサービスを含む。
+/// State shared across the entire server.
+/// Contains configuration and service.
 #[derive(Clone)]
 pub struct AppState {
-  /// 設定
+  /// Configuration
   pub config: Config,
-  /// 形態素解析サービス
+  /// Morphological Analysis Service
   ///
-  /// - 本番: `Arc::new(WakeruApiServiceFull::new(&config)?)`
-  /// - テスト: `Arc::new(StubWakeruApiService)`
+  /// - Production: `Arc::new(WakeruApiServiceFull::new(&config)?)`
+  /// - Test: `Arc::new(StubWakeruApiService)`
   pub service: Arc<dyn WakeruApiService>,
 }
 
 impl AppState {
-  /// 新しい AppState を作成する
+  /// Creates a new AppState
   #[must_use]
   pub fn new(config: Config, service: Arc<dyn WakeruApiService>) -> Self {
     Self { config, service }

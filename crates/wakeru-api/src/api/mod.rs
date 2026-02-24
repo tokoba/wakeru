@@ -1,4 +1,4 @@
-//! APIモジュール
+//! API module
 
 mod handlers;
 mod routes;

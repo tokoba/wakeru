@@ -1,4 +1,4 @@
-//! wakeru-api サーバーエントリーポイント
+//! wakeru-api server entry point
 
 use std::sync::Arc;
 
@@ -12,20 +12,20 @@ use wakeru_api::service::WakeruApiServiceFull;
 
 #[tokio::main]
 async fn main() -> Result<(), ApiError> {
-  // ロギングの初期化
+  // Initialize logging
   tracing_subscriber::registry().with(tracing_subscriber::fmt::layer()).init();
 
-  // 設定の読み込み
+  // Load configuration
   let config = Config::from_env()?;
-  tracing::info!(preset = ?config.preset, "設定を読み込みました");
+  tracing::info!(preset = ?config.preset, "Config loaded");
 
-  // サービスの初期化
+  // Initialize service
   let service = Arc::new(WakeruApiServiceFull::new(&config)?);
-  tracing::info!("形態素解析サービスを初期化しました");
+  tracing::info!("Morphological analysis service initialized");
 
-  // アプリケーション状態の作成
+  // Create application state
   let state = AppState::new(config, service);
 
-  // サーバー起動
+  // Start server
   run_server(state).await
 }

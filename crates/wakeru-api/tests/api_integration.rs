@@ -1,7 +1,7 @@
-//! API統合テスト
+//! API Integration Tests
 //!
-//! Router 経由で HTTP エンドポイントの振る舞いを検証する。
-//! スタブサービスを使用するため、辞書ロード不要で軽量かつ高速なテスト。
+//! Verify behavior of HTTP endpoints via Router.
+//! Uses stub service, so no dictionary loading required, lightweight and fast.
 
 use std::sync::Arc;
 
@@ -21,11 +21,11 @@ use wakeru_api::{
   service::WakeruApiService,
 };
 
-/// 統合テスト用の軽量スタブサービス
+/// Lightweight stub service for integration tests
 ///
-/// - 空文字列: `invalid_input` エラー
-/// - 長さ超過: `text_too_long` エラー
-/// - それ以外: 空の tokens と 0ms を返す
+/// - Empty string: `invalid_input` error
+/// - Length exceeded: `text_too_long` error
+/// - Otherwise: Returns empty tokens and 0ms
 struct StubWakeruApiService;
 
 impl WakeruApiService for StubWakeruApiService {
@@ -33,7 +33,7 @@ impl WakeruApiService for StubWakeruApiService {
     let text_bytes = request.text.len();
 
     if text_bytes == 0 {
-      return Err(ApiError::invalid_input("テキストが空です"));
+      return Err(ApiError::invalid_input("Text is empty"));
     }
 
     if text_bytes > MAX_TEXT_LENGTH {
@@ -47,7 +47,7 @@ impl WakeruApiService for StubWakeruApiService {
   }
 }
 
-/// テスト用の Router を構築する
+/// Build Router for testing
 fn test_app() -> Router {
   let config = Config {
     bind_addr: "127.0.0.1:0".to_string(),
@@ -64,7 +64,7 @@ fn test_app() -> Router {
 }
 
 // ============================================================================
-// 正常系テスト
+// Normal Case Tests
 // ============================================================================
 
 #[tokio::test]
@@ -86,7 +86,7 @@ async fn health_check_returns_ok() {
 async fn post_wakeru_success_returns_200() {
   let app = test_app();
 
-  let payload = serde_json::json!({ "text": "テスト" });
+  let payload = serde_json::json!({ "text": "Test" });
 
   let response = app
     .oneshot(
@@ -107,13 +107,13 @@ async fn post_wakeru_success_returns_200() {
   let json: serde_json::Value =
     serde_json::from_slice(&body_bytes).expect("body should be valid json");
 
-  // tokens / elapsed_ms フィールドが存在することを確認
+  // Confirm tokens / elapsed_ms fields exist
   assert!(json.get("tokens").is_some());
   assert!(json.get("elapsed_ms").is_some());
 }
 
 // ============================================================================
-// 異常系テスト（サービスエラー）
+// Abnormal Case Tests (Service Error)
 // ============================================================================
 
 #[tokio::test]
@@ -148,9 +148,9 @@ async fn post_wakeru_empty_text_returns_400() {
 async fn post_wakeru_too_long_text_returns_413() {
   let app = test_app();
 
-  // MAX_TEXT_LENGTH + 1 バイトのテキストを送る
-  // 注: Axum のデフォルトリクエストサイズ制限（2MB）が先に適用されるため、
-  // 413 PAYLOAD_TOO_LARGE が返る
+  // Send text of MAX_TEXT_LENGTH + 1 bytes
+  // Note: Axum's default request size limit (2MB) applies first,
+  // so 413 PAYLOAD_TOO_LARGE returns
   let long_text = "a".repeat(MAX_TEXT_LENGTH + 1);
   let payload = serde_json::json!({ "text": long_text });
 
@@ -166,20 +166,20 @@ async fn post_wakeru_too_long_text_returns_413() {
     .await
     .expect("request should succeed");
 
-  // Axum のリクエストサイズ制限により 413 が返ることを確認
-  // サービス層の text_too_long エラーはユニットテストでカバー済み
+  // Confirm 413 returns due to Axum's request size limit
+  // text_too_long error in service layer is covered by unit test
   assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }
 
 // ============================================================================
-// JSON パースエラーテスト（Axum 側）
+// JSON Parse Error Tests (Axum side)
 // ============================================================================
 
 #[tokio::test]
 async fn post_wakeru_invalid_json_returns_client_error() {
   let app = test_app();
 
-  // JSON として不正なボディ
+  // Invalid JSON body
   let invalid_body = "{ invalid json";
 
   let response = app
@@ -194,7 +194,7 @@ async fn post_wakeru_invalid_json_returns_client_error() {
     .await
     .expect("request should succeed");
 
-  // Axum の Json extractor が返すステータス（400 or 422 等）を許容
+  // Accept status returned by Axum's Json extractor (400 or 422 etc.)
   assert!(
     response.status().is_client_error(),
     "expected 4xx, got: {}",
@@ -206,7 +206,7 @@ async fn post_wakeru_invalid_json_returns_client_error() {
 async fn post_wakeru_missing_text_field_returns_client_error() {
   let app = test_app();
 
-  // text フィールドが欠落した JSON
+  // JSON missing text field
   let payload = serde_json::json!({ "foo": "bar" });
 
   let response = app
@@ -221,7 +221,7 @@ async fn post_wakeru_missing_text_field_returns_client_error() {
     .await
     .expect("request should succeed");
 
-  // Axum の Json extractor が返すステータス（400）
+  // Axum's Json extractor returns status (400)
   assert!(
     response.status().is_client_error(),
     "expected 4xx, got: {}",

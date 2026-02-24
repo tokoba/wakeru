@@ -1,7 +1,7 @@
-//! Tantivy インデックス管理モジュール
+//! Tantivy Index Management Module
 //!
-//! インデックスの作成・管理・ドキュメント追加を担当します。
-//! 多言語対応のため、Language 引数と言語別トークナイザー登録をサポートします。
+//! Responsible for index creation, management, and document addition.
+//! Supports Language argument and language-specific tokenizer registration for multi-language support.
 
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
@@ -17,14 +17,14 @@ use crate::indexer::report::AddDocumentsReport;
 use crate::indexer::schema_builder::{SchemaFields, build_schema};
 use crate::models::Document;
 
-/// インデックスの存在判定に使用するメタファイル名
+/// Meta file name used to determine index existence
 const META_JSON: &str = "meta.json";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JSON 変換ヘルパー関数
+// JSON Conversion Helper Functions
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// serde_json::Value → OwnedValue の再帰的変換
+/// Recursive conversion from serde_json::Value to OwnedValue
 fn serde_json_to_owned(v: &serde_json::Value) -> OwnedValue {
   use serde_json::Value as J;
   use tantivy::schema::OwnedValue as O;
@@ -49,7 +49,7 @@ fn serde_json_to_owned(v: &serde_json::Value) -> OwnedValue {
       O::Array(vals)
     }
     J::Object(map) => {
-      // OwnedValue::Object は Vec<(String, OwnedValue)> を期待する
+      // OwnedValue::Object expects Vec<(String, OwnedValue)>
       let obj: Vec<(String, OwnedValue)> =
         map.iter().map(|(k, v)| (k.clone(), serde_json_to_owned(v))).collect();
       O::Object(obj)
@@ -57,37 +57,37 @@ fn serde_json_to_owned(v: &serde_json::Value) -> OwnedValue {
   }
 }
 
-/// Metadata(HashMap) → Tantivy JsonObject(Vec) への変換
+/// Conversion from Metadata (HashMap) to Tantivy JsonObject (Vec)
 ///
-/// Tantivy 0.25: add_object は BTreeMap<String, OwnedValue> を期待する
+/// Tantivy 0.25: add_object expects BTreeMap<String, OwnedValue>
 fn metadata_to_tantivy_object(metadata: &crate::models::Metadata) -> BTreeMap<String, OwnedValue> {
   metadata.iter().map(|(k, v)| (k.clone(), serde_json_to_owned(v))).collect()
 }
 
-/// Tantivy インデックスの作成・管理を行う構造体。
+/// Structure for Tantivy index creation and management.
 ///
-/// # 責務
+/// # Responsibilities
 ///
-/// - インデックスディレクトリの作成
-/// - スキーマ定義とトークナイザー登録
-/// - ドキュメントの追加（重複時はスキップ）
-/// - IndexWriter のコミット管理
+/// - Index directory creation
+/// - Schema definition and tokenizer registration
+/// - Document addition (skips duplicates)
+/// - IndexWriter commit management
 ///
-/// # 多言語対応
+/// # Multi-language support
 ///
-/// - 日本語 (`Language::Ja`): VibratoTokenizer + N-gram トークナイザー
-/// - 英語 (`Language::En`): SimpleTokenizer + LowerCaser
+/// - Japanese (`Language::Ja`): VibratoTokenizer + N-gram Tokenizer
+/// - English (`Language::En`): SimpleTokenizer + LowerCaser
 pub struct IndexManager {
-  /// Tantivy Index ハンドル
+  /// Tantivy Index handle
   index: Index,
 
-  /// IndexReader（検索用）
+  /// IndexReader (for searching)
   reader: IndexReader,
 
-  /// スキーマフィールド参照
+  /// Schema fields reference
   fields: SchemaFields,
 
-  /// このインデックスの言語
+  /// Language of this index
   language: Language,
 }
 
@@ -101,24 +101,24 @@ impl std::fmt::Debug for IndexManager {
 }
 
 impl IndexManager {
-  /// インデックスを開く。存在しなければ新規作成する。
+  /// Opens an index. Creates a new one if it does not exist.
   ///
-  /// # 引数
-  /// - `index_path`: インデックス保存先ディレクトリ
-  /// - `language`: インデックスの言語
-  /// - `tokenizer_ja`: 日本語トークナイザー（日本語インデックスの場合は必須）
+  /// # Arguments
+  /// - `index_path`: Directory to save the index
+  /// - `language`: Language of the index
+  /// - `tokenizer_ja`: Japanese tokenizer (Required for Japanese index)
   ///
-  /// # エラー
-  /// - ディレクトリ作成失敗
-  /// - Tantivy のインデックス作成/オープンエラー
-  /// - 日本語インデックスでトークナイザーが提供されていない
-  /// - 既存インデックスと言語の不一致
+  /// # Errors
+  /// - Directory creation failure
+  /// - Tantivy index creation/open error
+  /// - Tokenizer not provided for Japanese index
+  /// - Mismatch between existing index and language
   ///
-  /// # 設計上の注意点
+  /// # Design Notes
   ///
-  /// - **新規作成時**: `build_schema(language)` でスキーマを構築
-  /// - **既存インデックスを開く時**: `SchemaFields::from_schema(&schema)` で再構築
-  /// - **疎結合**: `tokenizer_ja` は `Option<TextAnalyzer>` で、VibratoTokenizer に依存しない
+  /// - **New creation**: Build schema with `build_schema(language)`
+  /// - **Opening existing index**: Reconstruct with `SchemaFields::from_schema(&schema)`
+  /// - **Loose coupling**: `tokenizer_ja` is `Option<TextAnalyzer>` and does not depend on VibratoTokenizer
   pub fn open_or_create<P: AsRef<Path>>(
     index_path: P,
     language: Language,
@@ -126,51 +126,51 @@ impl IndexManager {
   ) -> Result<Self, IndexerError> {
     let index_path = index_path.as_ref();
 
-    // meta.json の存在でインデックスの有無を判定
+    // Determine index existence by meta.json existence
     let meta_json_exists = index_path.join(META_JSON).exists();
 
     let (index, fields) = if meta_json_exists {
-      // 既存インデックスを開く
+      // Open existing index
       let index = Index::open_in_dir(index_path)?;
       let schema = index.schema();
 
-      // 既存スキーマから SchemaFields を再構築
+      // Reconstruct SchemaFields from existing schema
       let fields = SchemaFields::from_schema(&schema)?;
 
-      // スキーマと言語の整合性チェック
+      // Check consistency between schema and language
       Self::assert_schema_matches_language(&schema, language)?;
 
       (index, fields)
     } else {
-      // ディレクトリを作成（存在しない場合）
+      // Create directory (if not exists)
       if !index_path.exists() {
         std::fs::create_dir_all(index_path).map_err(|e| IndexerError::InvalidIndexPath {
           path: index_path.to_path_buf(),
           source: Arc::new(e),
         })?;
       }
-      // 新規作成時のみ build_schema を使用
+      // Use build_schema only when creating new index
       let (schema, fields) = build_schema(language);
       let index = Index::create_in_dir(index_path, schema)?;
       (index, fields)
     };
 
-    // 言語に応じたトークナイザーを登録
+    // Register tokenizer according to language
     match language {
       Language::Ja => {
-        // 日本語トークナイザーは必須
+        // Japanese tokenizer is required
         let tokenizer = tokenizer_ja.ok_or(IndexerError::MissingJapaneseTokenizer)?;
         index.tokenizers().register(language.text_tokenizer_name(), tokenizer);
 
-        // 1文字N-gramトークナイザーを登録（部分一致検索用）
-        // Tantivy 0.25.0: NgramTokenizer::new() は Result を返す
+        // Register 1-char N-gram tokenizer (for partial match search)
+        // Tantivy 0.25.0: NgramTokenizer::new() returns Result
         let ja_ngram_tokenizer = NgramTokenizer::new(1, 1, false)?;
         let ja_ngram = TextAnalyzer::builder(ja_ngram_tokenizer).build();
         index.tokenizers().register("ja_ngram", ja_ngram);
       }
       Language::En => {
-        // 英語: SimpleTokenizer + LowerCaser
-        // Tantivy 0.25.0: ビルダーパターンを使用
+        // English: SimpleTokenizer + LowerCaser
+        // Tantivy 0.25.0: Use builder pattern
         let en_analyzer = TextAnalyzer::builder(SimpleTokenizer::default())
           .filter(LowerCaser)
           .filter(Stemmer::new(tantivy::tokenizer::Language::English))
@@ -179,7 +179,7 @@ impl IndexManager {
       }
     }
 
-    // Reader を作成
+    // Create Reader
     let reader = index.reader()?;
 
     Ok(Self {
@@ -190,10 +190,10 @@ impl IndexManager {
     })
   }
 
-  /// スキーマと言語の整合性をチェックする。
+  /// Checks consistency between schema and language.
   ///
-  /// 既存インデックスの text フィールドのトークナイザー名が、
-  /// 指定された言語に期待されるトークナイザー名と一致するか検証する。
+  /// Verifies if the tokenizer name of the text field in the existing index
+  /// matches the tokenizer name expected for the specified language.
   fn assert_schema_matches_language(
     schema: &tantivy::schema::Schema,
     language: Language,
@@ -204,7 +204,7 @@ impl IndexManager {
 
     let field_entry = schema.get_field_entry(text_field);
 
-    // Tantivy 0.25.0: FieldType をパターンマッチして TextOptions を取得
+    // Tantivy 0.25.0: Pattern match FieldType to get TextOptions
     let text_options = match field_entry.field_type() {
       FieldType::Str(options) => options,
       _ => {
@@ -214,7 +214,7 @@ impl IndexManager {
       }
     };
 
-    // インデックス設定からトークナイザー名を取得
+    // Get tokenizer name from index settings
     let indexing_options = text_options.get_indexing_options().ok_or_else(|| {
       IndexerError::Tantivy(tantivy::TantivyError::InvalidArgument(
         "text field is not indexed".to_string(),
@@ -234,64 +234,64 @@ impl IndexManager {
     Ok(())
   }
 
-  /// ドキュメントをインデックスに追加する。
+  /// Adds documents to the index.
   ///
-  /// - 重複ドキュメント（同じID）はスキップする
-  /// - 処理は最後まで続く（fail-fast しない）
-  /// - 結果は `AddDocumentsReport` で返す
+  /// - Skips duplicate documents (same ID)
+  /// - Continues processing until the end (does not fail-fast)
+  /// - Returns result as `AddDocumentsReport`
   ///
-  /// # 引数
-  /// - `documents`: 追加するドキュメントのスライス
+  /// # Arguments
+  /// - `documents`: Slice of documents to add
   ///
-  /// # 戻り値
-  /// - `Ok(AddDocumentsReport)`: 処理統計（成功/スキップ件数）
-  /// - `Err(IndexerError)`: Tantivy レベルの致命的エラー
+  /// # Returns
+  /// - `Ok(AddDocumentsReport)`: Processing statistics (success/skipped count)
+  /// - `Err(IndexerError)`: Tantivy level fatal error
   pub fn add_documents(&self, documents: &[Document]) -> Result<AddDocumentsReport, IndexerError> {
     let mut report = AddDocumentsReport::default();
     let mut seen_ids: HashSet<String> = HashSet::with_capacity(documents.len());
 
-    // IndexWriter を作成（50MB バッファ）
+    // Create IndexWriter (50MB buffer)
     let mut writer: IndexWriter = self.index.writer(50_000_000)?;
 
-    // 検索用 Searcher
+    // Searcher for searching
     let searcher = self.reader.searcher();
 
     for doc in documents {
       report.record_total();
       let id = doc.id.clone();
 
-      // バッチ内重複
+      // Duplicate in batch
       let in_batch = !seen_ids.insert(id.clone());
 
-      // インデックス内重複（doc_freq で高速チェック）
+      // Duplicate in index (fast check with doc_freq)
       let term = Term::from_field_text(self.fields.id, &id);
       let in_index = searcher.doc_freq(&term)? > 0;
 
       if in_batch || in_index {
-        // 重複はスキップ
+        // Skip duplicates
         report.record_skipped();
         continue;
       }
 
-      // 重複なし → 追加
+      // No duplicate -> Add
       let tantivy_doc = self.to_tantivy_document(doc)?;
       writer.add_document(tantivy_doc)?;
       report.record_added();
     }
 
-    // コミット: ディスクに永続化
+    // Commit: Persist to disk
     writer.commit()?;
 
-    // Reader をリロード（以降の検索で新ドキュメントを見えるようにする）
+    // Reload Reader (make new documents visible for subsequent searches)
     self.reader.reload()?;
 
     Ok(report)
   }
 
-  /// Document → TantivyDocument 変換（内部メソッド）
+  /// Document -> TantivyDocument conversion (internal method)
   ///
-  /// # 戻り値
-  /// - `Ok(TantivyDocument)`: 変換成功
+  /// # Returns
+  /// - `Ok(TantivyDocument)`: Conversion successful
   fn to_tantivy_document(&self, doc: &Document) -> Result<tantivy::TantivyDocument, IndexerError> {
     let mut tantivy_doc = tantivy::TantivyDocument::default();
 
@@ -299,15 +299,15 @@ impl IndexManager {
     tantivy_doc.add_text(self.fields.source_id, &doc.source_id);
     tantivy_doc.add_text(self.fields.text, &doc.text);
 
-    // N-gramフィールドにも同じ本文を追加（部分一致検索用）
-    // 日本語インデックスのみ（英語の場合は text_ngram が None）
+    // Add same text to N-gram field (for partial match search)
+    // Only for Japanese index (text_ngram is None for English)
     if let Some(text_ngram_field) = self.fields.text_ngram {
       tantivy_doc.add_text(text_ngram_field, &doc.text);
     }
 
-    // メタデータ全体を JsonObject として投入
-    // tags も metadata["tags"] に含まれるため、二重保持不要
-    // Tantivy 0.25: add_object は BTreeMap<String, OwnedValue> を期待するため変換が必要
+    // Insert entire metadata as JsonObject
+    // tags is also included in metadata["tags"], so double holding is unnecessary
+    // Tantivy 0.25: add_object expects BTreeMap<String, OwnedValue>, so conversion is needed
     if !doc.metadata.is_empty() {
       let json_obj = metadata_to_tantivy_object(&doc.metadata);
       tantivy_doc.add_object(self.fields.metadata, json_obj);
@@ -316,22 +316,22 @@ impl IndexManager {
     Ok(tantivy_doc)
   }
 
-  /// Tantivy Index への参照を返す（SearchEngine で使用）
+  /// Returns reference to Tantivy Index (used in SearchEngine)
   pub fn index(&self) -> &Index {
     &self.index
   }
 
-  /// IndexReader への参照を返す
+  /// Returns reference to IndexReader
   pub fn reader(&self) -> &IndexReader {
     &self.reader
   }
 
-  /// SchemaFields への参照を返す
+  /// Returns reference to SchemaFields
   pub fn fields(&self) -> &SchemaFields {
     &self.fields
   }
 
-  /// このインデックスの言語を返す
+  /// Returns the language of this index
   pub fn language(&self) -> Language {
     self.language
   }
@@ -343,37 +343,37 @@ mod tests {
   use tantivy::tokenizer::TextAnalyzer;
   use vibrato_rkyv::dictionary::PresetDictionaryKind;
 
-  /// 日本語インデックスの作成とドキュメント追加が正常に動作することを確認。
+  /// Confirm that creating a Japanese index and adding documents works correctly.
   #[test]
   fn open_or_create_japanese_and_add_documents() {
-    // 辞書マネージャーからトークナイザーを構築
+    // Build tokenizer from dictionary manager
     let manager = crate::dictionary::DictionaryManager::with_preset(PresetDictionaryKind::Ipadic)
-      .expect("DictionaryManager 構築失敗");
+      .expect("Failed to build DictionaryManager");
 
     let cache_dir = manager.cache_dir();
     if !cache_dir.join(PresetDictionaryKind::Ipadic.name()).exists() {
-      eprintln!("辞書キャッシュなし → スキップ");
+      eprintln!("No dictionary cache -> Skip");
       return;
     }
 
-    let dict = manager.load().expect("辞書ロード失敗");
+    let dict = manager.load().expect("Failed to load dictionary");
     let tokenizer =
       crate::tokenizer::vibrato_tokenizer::VibratoTokenizer::from_shared_dictionary(dict);
     let text_analyzer = TextAnalyzer::from(tokenizer);
 
-    // 一時ディレクトリにインデックスを作成
-    let tmp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    // Create index in temporary directory
+    let tmp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let index_manager =
       IndexManager::open_or_create(tmp_dir.path(), Language::Ja, Some(text_analyzer))
-        .expect("インデックス作成失敗");
+        .expect("Failed to create index");
 
-    // 日本語であることを確認
+    // Confirm it is Japanese
     assert_eq!(index_manager.language(), Language::Ja);
 
-    // text_ngram フィールドが存在することを確認
+    // Confirm text_ngram field exists
     assert!(index_manager.fields().text_ngram.is_some());
 
-    // ドキュメント追加
+    // Add documents
     let docs = vec![
       Document::new("1", "src-1", "東京は日本の首都です").with_tag("category:geo"),
       Document::new("2", "src-1", "大阪は西日本の中心都市です")
@@ -381,26 +381,26 @@ mod tests {
         .with_tag("region:kansai"),
     ];
 
-    let report = index_manager.add_documents(&docs).expect("ドキュメント追加失敗");
+    let report = index_manager.add_documents(&docs).expect("Failed to add documents");
     assert_eq!(report.added, 2);
     assert_eq!(report.skipped_duplicates, 0);
   }
 
-  /// 英語インデックスの作成とドキュメント追加が正常に動作することを確認。
+  /// Confirm that creating an English index and adding documents works correctly.
   #[test]
   fn open_or_create_english_and_add_documents() {
-    // 一時ディレクトリにインデックスを作成
-    let tmp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    // Create index in temporary directory
+    let tmp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let index_manager = IndexManager::open_or_create(tmp_dir.path(), Language::En, None)
-      .expect("インデックス作成失敗");
+      .expect("Failed to create index");
 
-    // 英語であることを確認
+    // Confirm it is English
     assert_eq!(index_manager.language(), Language::En);
 
-    // text_ngram フィールドが存在しないことを確認
+    // Confirm text_ngram field does not exist
     assert!(index_manager.fields().text_ngram.is_none());
 
-    // ドキュメント追加
+    // Add documents
     let docs = vec![
       Document::new("1", "src-1", "Tokyo is the capital of Japan").with_tag("category:geo"),
       Document::new("2", "src-1", "Osaka is a major city in western Japan")
@@ -408,15 +408,15 @@ mod tests {
         .with_tag("region:kansai"),
     ];
 
-    let report = index_manager.add_documents(&docs).expect("ドキュメント追加失敗");
+    let report = index_manager.add_documents(&docs).expect("Failed to add documents");
     assert_eq!(report.added, 2);
     assert_eq!(report.skipped_duplicates, 0);
   }
 
-  /// 日本語インデックスでトークナイザーが提供されていない場合のエラーテスト
+  /// Error test when tokenizer is not provided for Japanese index
   #[test]
   fn missing_japanese_tokenizer_error() {
-    let tmp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let tmp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let result = IndexManager::open_or_create(tmp_dir.path(), Language::Ja, None);
 
     assert!(result.is_err());
@@ -424,57 +424,57 @@ mod tests {
     assert!(matches!(err, IndexerError::MissingJapaneseTokenizer));
   }
 
-  /// 重複スキップのテスト（日本語）
+  /// Test duplicate skip (Japanese)
   #[test]
   fn duplicate_documents_are_skipped_japanese() {
     let manager = crate::dictionary::DictionaryManager::with_preset(PresetDictionaryKind::Ipadic)
-      .expect("DictionaryManager 構築失敗");
+      .expect("Failed to build DictionaryManager");
 
     let cache_dir = manager.cache_dir();
     if !cache_dir.join(PresetDictionaryKind::Ipadic.name()).exists() {
-      eprintln!("辞書キャッシュなし → スキップ");
+      eprintln!("No dictionary cache -> Skip");
       return;
     }
 
-    let dict = manager.load().expect("辞書ロード失敗");
+    let dict = manager.load().expect("Failed to load dictionary");
     let tokenizer =
       crate::tokenizer::vibrato_tokenizer::VibratoTokenizer::from_shared_dictionary(dict);
     let text_analyzer = TextAnalyzer::from(tokenizer);
 
-    let tmp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let tmp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let index_manager =
       IndexManager::open_or_create(tmp_dir.path(), Language::Ja, Some(text_analyzer))
-        .expect("インデックス作成失敗");
+        .expect("Failed to create index");
 
-    // 最初のドキュメント
+    // First document
     let docs1 = vec![Document::new("1", "src-1", "東京は日本の首都です")];
-    let report1 = index_manager.add_documents(&docs1).expect("追加失敗");
+    let report1 = index_manager.add_documents(&docs1).expect("Failed to add");
     assert_eq!(report1.added, 1);
     assert_eq!(report1.skipped_duplicates, 0);
 
-    // 同じ ID のドキュメントを追加 → スキップされる
+    // Add document with same ID -> Skipped
     let docs2 = vec![Document::new("1", "src-1", "大阪は西日本の中心都市です")];
-    let report2 = index_manager.add_documents(&docs2).expect("追加失敗");
+    let report2 = index_manager.add_documents(&docs2).expect("Failed to add");
     assert_eq!(report2.added, 0);
     assert_eq!(report2.skipped_duplicates, 1);
   }
 
-  /// 重複スキップのテスト（英語）
+  /// Test duplicate skip (English)
   #[test]
   fn duplicate_documents_are_skipped_english() {
-    let tmp_dir = tempfile::TempDir::new().expect("一時ディレクトリ作成失敗");
+    let tmp_dir = tempfile::TempDir::new().expect("Failed to create temporary directory");
     let index_manager = IndexManager::open_or_create(tmp_dir.path(), Language::En, None)
-      .expect("インデックス作成失敗");
+      .expect("Failed to create index");
 
-    // 最初のドキュメント
+    // First document
     let docs1 = vec![Document::new("1", "src-1", "Tokyo is the capital of Japan")];
-    let report1 = index_manager.add_documents(&docs1).expect("追加失敗");
+    let report1 = index_manager.add_documents(&docs1).expect("Failed to add");
     assert_eq!(report1.added, 1);
     assert_eq!(report1.skipped_duplicates, 0);
 
-    // 同じ ID のドキュメントを追加 → スキップされる
+    // Add document with same ID -> Skipped
     let docs2 = vec![Document::new("1", "src-1", "Osaka is a major city")];
-    let report2 = index_manager.add_documents(&docs2).expect("追加失敗");
+    let report2 = index_manager.add_documents(&docs2).expect("Failed to add");
     assert_eq!(report2.added, 0);
     assert_eq!(report2.skipped_duplicates, 1);
   }

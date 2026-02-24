@@ -1,5 +1,5 @@
-//! tokenizer モジュール
+//! tokenizer module
 pub mod vibrato_tokenizer;
 
-/// 再エクスポート
+/// Re-exports
 pub use vibrato_tokenizer::{VibratoTokenStream, VibratoTokenizer, should_index};

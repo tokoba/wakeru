@@ -1,11 +1,11 @@
-//! リクエストモデル定義
+//! Request Model Definition
 
 use serde::Deserialize;
 
-/// 形態素解析リクエスト
+/// Morphological Analysis Request
 #[derive(Debug, Deserialize)]
 pub struct WakeruRequest {
-  /// 解析対象のテキスト
+  /// Text to analyze
   pub text: String,
 }
 

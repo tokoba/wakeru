@@ -1,4 +1,4 @@
-//! ルーター定義
+//! Router Definition
 
 use axum::{
   Router,
@@ -10,13 +10,13 @@ use super::handlers::{health_check, post_wakeru};
 use super::state::AppState;
 use crate::errors::ApiError;
 
-/// APIルーターを作成する
+/// Create API Router
 ///
 /// # Arguments
-/// * `state` - アプリケーション状態
+/// * `state` - Application state
 ///
 /// # Returns
-/// 設定済みの Router
+/// Configured Router
 pub fn create_router(state: AppState) -> Router {
   Router::new()
     .route("/wakeru", post(post_wakeru))
@@ -25,26 +25,26 @@ pub fn create_router(state: AppState) -> Router {
     .with_state(state)
 }
 
-/// サーバーを起動する
+/// Start the server
 ///
 /// # Arguments
-/// * `state` - アプリケーション状態
+/// * `state` - Application state
 ///
 /// # Errors
-/// サーバーの起動に失敗した場合にエラーを返す
+/// Returns error if server fails to start
 pub async fn run_server(state: AppState) -> crate::errors::Result<()> {
   let addr = &state.config.bind_addr;
   let listener = tokio::net::TcpListener::bind(addr)
     .await
-    .map_err(|e| ApiError::config(format!("バインドに失敗しました: {}", e)))?;
+    .map_err(|e| ApiError::config(format!("Failed to bind: {}", e)))?;
 
-  tracing::info!("サーバーを起動します: http://{}", addr);
+  tracing::info!("Starting server: http://{}", addr);
 
   let router = create_router(state);
 
   axum::serve(listener, router)
     .await
-    .map_err(|e| ApiError::internal(format!("サーバーエラー: {}", e)))?;
+    .map_err(|e| ApiError::internal(format!("Server error: {}", e)))?;
 
   Ok(())
 }
@@ -59,7 +59,7 @@ mod tests {
   use crate::models::{WakeruRequest, WakeruResponse};
   use crate::service::WakeruApiService;
 
-  /// テスト用のダミー実装（辞書を一切触らない）
+  /// Dummy implementation for testing (Does not touch dictionary)
   #[derive(Clone)]
   struct DummyService;
 
@@ -78,7 +78,7 @@ mod tests {
       preset: Preset::UnidicCwj,
     };
 
-    // スタブを注入（辞書ロード不要）
+    // Inject stub (No dictionary load needed)
     let service = Arc::new(DummyService) as Arc<dyn WakeruApiService>;
     AppState::new(config, service)
   }
@@ -87,6 +87,6 @@ mod tests {
   fn test_router_creation() {
     let state = create_test_state();
     let _router = create_router(state);
-    // ルーターが正常に作成できることを確認
+    // Confirm router can be created successfully
   }
 }

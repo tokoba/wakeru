@@ -1,4 +1,4 @@
-//! APIエラー定義
+//! API Error Definitions
 
 use axum::{
   Json,
@@ -8,24 +8,24 @@ use axum::{
 use serde::Serialize;
 use thiserror::Error;
 
-// wakeru クレートのエラー型をインポート
+// Import wakeru crate error types
 use wakeru::errors::{TokenizerError, WakeruError};
 
-/// エラーの種類
+/// Error Kinds
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApiErrorKind {
-  /// 入力値が無効
+  /// Input value is invalid
   InvalidInput,
-  /// テキストが長すぎる
+  /// Text is too long
   TextTooLong,
-  /// 内部エラー
+  /// Internal error
   Internal,
-  /// 設定エラー
+  /// Configuration error
   Config,
 }
 
 impl ApiErrorKind {
-  /// エラーコードを取得
+  /// Get error code
   #[must_use]
   pub fn code(&self) -> &'static str {
     match self {
@@ -36,7 +36,7 @@ impl ApiErrorKind {
     }
   }
 
-  /// HTTPステータスコードを取得
+  /// Get HTTP status code
   #[must_use]
   pub fn status(&self) -> StatusCode {
     match self {
@@ -46,28 +46,28 @@ impl ApiErrorKind {
   }
 }
 
-/// APIエラー
+/// API Error
 #[derive(Debug, Error)]
 pub enum ApiError {
-  /// 入力値が無効
-  #[error("入力値が無効です: {0}")]
+  /// Input value is invalid
+  #[error("Invalid input: {0}")]
   InvalidInput(String),
 
-  /// テキストが長すぎる
-  #[error("テキストが長すぎます: {0} バイト（最大: {1} バイト）")]
+  /// Text is too long
+  #[error("Text too long: {0} bytes (max: {1} bytes)")]
   TextTooLong(usize, usize),
 
-  /// 内部エラー
-  #[error("内部エラー: {0}")]
+  /// Internal error
+  #[error("Internal error: {0}")]
   Internal(String),
 
-  /// 設定エラー
-  #[error("設定エラー: {0}")]
+  /// Configuration error
+  #[error("Config error: {0}")]
   Config(String),
 }
 
 impl ApiError {
-  /// エラーの種類を取得
+  /// Get error kind
   #[must_use]
   pub fn kind(&self) -> ApiErrorKind {
     match self {
@@ -78,44 +78,44 @@ impl ApiError {
     }
   }
 
-  /// エラーコードを取得
+  /// Get error code
   #[must_use]
   pub fn code(&self) -> &'static str {
     self.kind().code()
   }
 
-  /// HTTPステータスコードを取得
+  /// Get HTTP status code
   #[must_use]
   pub fn status(&self) -> StatusCode {
     self.kind().status()
   }
 
-  /// 無効な入力エラーを作成
+  /// Create invalid input error
   #[must_use]
   pub fn invalid_input(message: impl Into<String>) -> Self {
     Self::InvalidInput(message.into())
   }
 
-  /// テキスト長超過エラーを作成
+  /// Create text too long error
   #[must_use]
   pub fn text_too_long(actual: usize, max: usize) -> Self {
     Self::TextTooLong(actual, max)
   }
 
-  /// 内部エラーを作成
+  /// Create internal error
   #[must_use]
   pub fn internal(message: impl Into<String>) -> Self {
     Self::Internal(message.into())
   }
 
-  /// 設定エラーを作成
+  /// Create configuration error
   #[must_use]
   pub fn config(message: impl Into<String>) -> Self {
     Self::Config(message.into())
   }
 }
 
-/// エラーレスポンスのJSON構造
+/// JSON structure for error response
 #[derive(Serialize)]
 struct ErrorResponse {
   error: ErrorBody,
@@ -141,9 +141,9 @@ impl IntoResponse for ApiError {
   }
 }
 
-/// WakeruError から ApiError への変換
+/// Conversion from WakeruError to ApiError
 ///
-/// ドメイン層のエラーを API 層のエラーにマッピングする。
+/// Maps domain layer errors to API layer errors.
 impl From<WakeruError> for ApiError {
   fn from(err: WakeruError) -> Self {
     match err {
@@ -160,13 +160,13 @@ impl From<WakeruError> for ApiError {
       WakeruError::Indexer(_) | WakeruError::Searcher(_) => {
         ApiError::internal(format!("internal error: {err}"))
       }
-      // #[non_exhaustive] な enum のため、将来追加されるバリアントに対応
+      // Since it's a #[non_exhaustive] enum, support variants added in the future
       _ => ApiError::internal(format!("unknown error: {err}")),
     }
   }
 }
 
-/// Result 型エイリアス
+/// Result Type Alias
 pub type Result<T> = std::result::Result<T, ApiError>;
 
 #[cfg(test)]
@@ -175,7 +175,7 @@ mod tests {
 
   #[test]
   fn invalid_input_creation() {
-    let err = ApiError::invalid_input("テストエラー");
+    let err = ApiError::invalid_input("Test Error");
     assert_eq!(err.kind(), ApiErrorKind::InvalidInput);
     assert_eq!(err.code(), "invalid_input");
     assert_eq!(err.status(), StatusCode::BAD_REQUEST);
@@ -193,7 +193,7 @@ mod tests {
 
   #[test]
   fn internal_creation() {
-    let err = ApiError::internal("内部処理エラー");
+    let err = ApiError::internal("Internal processing error");
     assert_eq!(err.kind(), ApiErrorKind::Internal);
     assert_eq!(err.code(), "internal_error");
     assert_eq!(err.status(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -201,7 +201,7 @@ mod tests {
 
   #[test]
   fn config_creation() {
-    let err = ApiError::config("設定ファイルが見つかりません");
+    let err = ApiError::config("Config file not found");
     assert_eq!(err.kind(), ApiErrorKind::Config);
     assert_eq!(err.code(), "config_error");
     assert_eq!(err.status(), StatusCode::INTERNAL_SERVER_ERROR);
@@ -210,7 +210,7 @@ mod tests {
   #[test]
   fn from_wakeru_error_invalid_input() {
     let wakeru_err = WakeruError::Tokenizer(TokenizerError::InvalidInput {
-      reason: "テストエラー".to_string(),
+      reason: "Test Error".to_string(),
     });
     let api_err: ApiError = wakeru_err.into();
     assert_eq!(api_err.kind(), ApiErrorKind::InvalidInput);

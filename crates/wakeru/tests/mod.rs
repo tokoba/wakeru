@@ -1,4 +1,4 @@
-//! Wakeru crate 用の統合テスト
+//! Integration tests for Wakeru crate
 pub mod dictionary;
 pub mod integration_test;
 pub mod tokenizer;
