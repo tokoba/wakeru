@@ -86,7 +86,7 @@ impl SearchEngine {
     })?;
 
     // Get top documents (max < limit) by BM25 score
-    let top_docs = searcher.search(&query, &TopDocs::with_limit(limit))?;
+    let top_docs = searcher.search(&query, &TopDocs::with_limit(limit).order_by_score())?;
 
     // Convert results with helper method
     self.convert_to_search_results(&searcher, top_docs)
@@ -220,7 +220,7 @@ impl SearchEngine {
     );
 
     // Execute search (with BM25 score)
-    let top_docs = searcher.search(&query, &TopDocs::with_limit(limit))?;
+    let top_docs = searcher.search(&query, &TopDocs::with_limit(limit).order_by_score())?;
 
     // Result conversion (reuse existing logic)
     self.convert_to_search_results(&searcher, top_docs)
