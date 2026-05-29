@@ -11,20 +11,16 @@ allow = [
     "CC0-1.0",
     "ISC",
     "MPL-2.0",
-    "Unicode-DFS-2016",
     "Unicode-3.0",
     "Unlicense",
     "Zlib",
 ]
-
-# The confidence threshold for license text detection (0.0-1.0)
 confidence-threshold = 0.8
 
-# Exceptions to allow list (add as needed)
-# [[licenses.exceptions]]
-# name = "some-crate"
-# version = "1.0"
-# allow = ["GPL-3.0"]
+# webpki-root-certs がルート証明書バンドルに CDLA-Permissive-2.0 を使用
+[[licenses.exceptions]]
+name = "webpki-root-certs"
+allow = ["CDLA-Permissive-2.0"]
 
 [bans]
 # Deny multiple versions of the same crate
@@ -40,13 +36,12 @@ skip = [
     { name = "windows_aarch64_msvc", reason = "Windows dependencies often require different versions" },
     { name = "windows_i686_gnu", reason = "Windows dependencies often require different versions" },
     { name = "windows_i686_msvc", reason = "Windows dependencies often require different versions" },
-    { name = "windows_i686_gnullvm", reason = "Windows dependencies often require different versions" },
     { name = "windows-targets", reason = "Windows dependencies often require different versions" },
     { name = "getrandom", reason = "Multiple versions required by different dependencies" },
-    { name = "hashbrown", reason = "Multiple versions required by different dependencies" },
-    { name = "rand", reason = "Multiple versions required by different dependencies" },
-    { name = "rand_core", reason = "Multiple versions required by different dependencies" },
-    { name = "rand_chacha", reason = "Multiple versions required by different dependencies" },
+    { name = "core-foundation", reason = "system-configuration v0.7.0 pins ^0.9; rustls-platform-verifier uses ^0.10" },
+    { name = "erased-serde", reason = "slog uses ^0.3; typetag uses ^0.4" },
+    { name = "thiserror", reason = "jni v0.21.1 uses ^1; workspace uses ^2" },
+    { name = "thiserror-impl", reason = "Same root cause as thiserror via jni v0.21.1" },
 ]
 
 # Skip specific dependencies by tree
@@ -72,7 +67,7 @@ id = "RUSTSEC-2024-0436"
 reason = "paste is unmaintained but no alternative available yet. Used transitively via vibrato-rkyv -> argmin."
 
 [sources]
-# Require git dependencies to be over HTTPS
+# Git依存を禁止（crates.ioのみ使用）
 allow-git = []
 
 # Unknown sources are not allowed
