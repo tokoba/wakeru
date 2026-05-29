@@ -92,6 +92,7 @@
       "tsx",
       "txt",
       "typescript",
+      "xaml",
       "xml",
       "yaml",
       "yml",
@@ -106,9 +107,9 @@
     "style": "---"
   },
   "line-length": {
-    "line_length": 200,
+    "line_length": 1000,
     "code_block_line_length": 160,
-    "heading_line_length": 80,
+    "heading_line_length": 120,
     "tables": true,
     "headings": true,
     "stern": false,
@@ -149,7 +150,7 @@
   "ol-prefix": {
     "enabled": false
   },
-  "no-emphasis-as-heading": "error",
+  "no-emphasis-as-heading": false,
   "table-column-style": false,
   "heading-increment": false,
   "list-indent": false,
@@ -161,5 +162,9 @@
   "table-pipe-style": false,
   "table-column-count": false,
   "table-cell-padding": false,
-  "table-header-indent": false
+  "table-header-indent": false,
+  "no-blanks-blockquote": false,
+  "no-inline-html": false,
+  "single-h1": false,
+  "single-title": false
 }
